@@ -102,3 +102,34 @@ describe("buildReportRows", () => {
     expect(row.costUsd).toBe(0);
   });
 });
+
+describe("buildReportRows — getUsageHistory's actual row shape", () => {
+  it("reads tokens out of the nested `tokens` object the repo returns", () => {
+    // getUsageHistory() maps the row to { timestamp, provider, model,
+    // connectionId, cost, status, tokens } — the counts live INSIDE tokens.
+    // Passing the row straight to computeUnits scored every account 0.
+    const [row] = buildReportRows({
+      snapshots: [snap("alice")],
+      usageByConnection: {
+        alice: [{
+          model: "claude-opus-5",
+          cost: 0.5,
+          tokens: { prompt_tokens: 1000, completion_tokens: 100, cached_tokens: 900,
+                    cache_creation_input_tokens: 200 },
+        }],
+      },
+      pricing: { claude: { "claude-opus-5": { input: 5, output: 25, cached: 0.5, cache_creation: 6.25 } } },
+    });
+    expect(row.units).toBeCloseTo(200 * 1.25 + 900 * 0.1 + 100 + 100 * 5, 2);
+    expect(row.units).toBeGreaterThan(0);
+  });
+
+  it("prefers the cost the gateway already recorded over recomputing it", () => {
+    const [row] = buildReportRows({
+      snapshots: [snap("alice")],
+      usageByConnection: { alice: [{ cost: 1.25, tokens: { completion_tokens: 10 } }] },
+      pricing: {},
+    });
+    expect(row.costUsd).toBeCloseTo(1.25, 4);
+  });
+});

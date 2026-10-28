@@ -48,6 +48,9 @@ const ALWAYS_PROTECTED = [
   "/api/oauth/zed/auto-import",
   "/api/oauth/minimax-code/lease",
   "/api/oauth/minimax-code-global/lease",
+  // Outbound action: sends the usage report by email. Must not be reachable
+  // through the requireLogin=false bypass.
+  "/api/monitoring/send-test",
 ];
 
 // Require auth, but allow through if requireLogin is disabled

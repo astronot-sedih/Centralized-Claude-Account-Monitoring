@@ -20,15 +20,27 @@ export const UNIT_WEIGHTS = Object.freeze({
   output: 5,
 });
 
-// Usage records reach us in two spellings: snake_case from the Anthropic API
-// payloads, camelCase from usageHistory rows. Read both rather than making
-// callers normalise.
+// Usage records reach us in three spellings, and all three are real:
+//   - Anthropic API payloads:      input_tokens / output_tokens /
+//                                  cache_read_input_tokens
+//   - usageHistory columns:        promptTokens / completionTokens
+//   - usageHistory `tokens` JSON:  prompt_tokens / completion_tokens /
+//                                  cached_tokens
+// Read all of them rather than making callers normalise — a record in a
+// spelling this function does not know scores 0, which looks like "this person
+// did no work" rather than like a bug.
 const FIELD_ALIASES = {
   cacheCreation: ["cache_creation_input_tokens", "cacheCreationInputTokens"],
-  cacheRead: ["cache_read_input_tokens", "cacheReadInputTokens"],
-  input: ["input_tokens", "promptTokens"],
-  output: ["output_tokens", "completionTokens"],
+  cacheRead: ["cache_read_input_tokens", "cacheReadInputTokens", "cached_tokens"],
+  input: ["input_tokens", "promptTokens", "prompt_tokens"],
+  output: ["output_tokens", "completionTokens", "completion_tokens"],
 };
+
+// In the `tokens` JSON shape, prompt_tokens is the TOTAL input including the
+// cached part, which is billed at 0.1x rather than 1x. Counting both in full
+// would overstate a cache-heavy account — exactly the accounts this report is
+// meant to compare.
+const INPUT_INCLUDES_CACHE = { input: "prompt_tokens", cache: "cached_tokens" };
 
 // A missing, null or non-numeric field counts as zero. Returning NaN here would
 // propagate silently into a report figure, which is worse than undercounting.
@@ -51,10 +63,20 @@ function read(usage, key) {
  */
 export function computeUnits(usage) {
   if (!usage || typeof usage !== "object") return 0;
-  let total = 0;
-  for (const key of Object.keys(UNIT_WEIGHTS)) {
-    total += read(usage, key) * UNIT_WEIGHTS[key];
+
+  const parts = {};
+  for (const key of Object.keys(UNIT_WEIGHTS)) parts[key] = read(usage, key);
+
+  // Subtract the cached portion from input when this record's input field is
+  // the inclusive one, so the cache discount applies instead of being added on
+  // top of a full-price input.
+  const { input, cache } = INPUT_INCLUDES_CACHE;
+  if (input in usage && cache in usage) {
+    parts.input = Math.max(0, parts.input - num(usage[cache]));
   }
+
+  let total = 0;
+  for (const key of Object.keys(UNIT_WEIGHTS)) total += parts[key] * UNIT_WEIGHTS[key];
   return total;
 }
 

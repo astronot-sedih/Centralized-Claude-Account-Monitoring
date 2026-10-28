@@ -46,9 +46,25 @@ function percentOf(window) {
   return num(window?.used) ?? num(window?.utilization) ?? num(window?.percent);
 }
 
+// getUsageHistory() returns { timestamp, provider, model, connectionId, cost,
+// status, tokens } with the counts nested INSIDE `tokens`. Flatten so callers
+// (and computeUnits) see one shape; a record whose counts stay nested scores
+// zero, which reads as "this person did no work".
+function flatten(record) {
+  if (!record || typeof record !== "object") return {};
+  const nested = record.tokens && typeof record.tokens === "object" ? record.tokens : null;
+  return nested ? { ...record, ...nested } : record;
+}
+
 // USD per the repo's pricing table, which is per-MTok. This is an API-PRICE
 // EQUIVALENT, never billed spend: on Pro/Team the seat is a flat fee.
-function costForRecord(record, pricing, provider = "claude") {
+function costForRecord(raw, pricing, provider = "claude") {
+  // The gateway already priced this request when it recorded it; trust that
+  // over a second calculation that could disagree with the usage dashboard.
+  const recorded = num(raw?.cost);
+  if (recorded !== null && recorded > 0) return recorded;
+
+  const record = flatten(raw);
   const entry = pricing?.[provider]?.[record?.model];
   if (!entry) return 0;
   const g = (keys) => {
@@ -58,9 +74,9 @@ function costForRecord(record, pricing, provider = "claude") {
     }
     return 0;
   };
-  const input = g(["promptTokens", "input_tokens"]);
-  const output = g(["completionTokens", "output_tokens"]);
-  const cacheRead = g(["cacheReadInputTokens", "cache_read_input_tokens"]);
+  const input = g(["promptTokens", "input_tokens", "prompt_tokens"]);
+  const output = g(["completionTokens", "output_tokens", "completion_tokens"]);
+  const cacheRead = g(["cacheReadInputTokens", "cache_read_input_tokens", "cached_tokens"]);
   const cacheCreate = g(["cacheCreationInputTokens", "cache_creation_input_tokens"]);
   return (
     (input * (entry.input || 0) +
@@ -106,7 +122,7 @@ export function buildReportRows(input) {
     // Units and cost come from proxy rows, independent of whether the quota
     // read succeeded — a dead token does not erase traffic already recorded.
     const units = measurable
-      ? records.reduce((sum, r) => sum + computeUnits(r), 0)
+      ? records.reduce((sum, r) => sum + computeUnits(flatten(r)), 0)
       : null;
     const costUsd = measurable
       ? records.reduce((sum, r) => sum + costForRecord(r, pricing, snap.provider || "claude"), 0)
