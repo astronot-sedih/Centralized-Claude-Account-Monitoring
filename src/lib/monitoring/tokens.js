@@ -57,3 +57,91 @@ export function computeUnits(usage) {
   }
   return total;
 }
+
+/**
+ * Used ONLY when a quota window arrives without the API's own severity.
+ * Anthropic supplies `severity` per window (observed in spike 0), and its
+ * judgement of "you are in trouble" beats ours — these numbers cannot drift
+ * from its definition if we never reach them.
+ */
+export const FALLBACK_THRESHOLDS = Object.freeze({
+  critical: 90,
+  high: 75,
+  medium: 50,
+});
+
+// The API's severity vocabulary mapped onto the Neutral DS v1.12 tiers
+// (critical / high / medium / low / sev-info — Badge, §2.1).
+const API_SEVERITY = {
+  critical: "critical",
+  serious: "high",
+  warning: "high",
+  high: "high",
+  medium: "medium",
+  moderate: "medium",
+  normal: "low",
+  low: "low",
+  ok: "low",
+};
+
+/**
+ * Neutral DS `--sev-*` tiers as literal hex.
+ *
+ * Literal, not `var(--sev-critical)`, because email HTML cannot use CSS custom
+ * properties (spec §4.3) and both surfaces must read one map or they drift.
+ * Shape per tier follows the Badge/InfoBanner soft pattern: soft `fill`, 1px
+ * `line`, `text` for the label, `dot` for the 6px marker.
+ */
+export const SEV_TOKENS = Object.freeze({
+  critical: Object.freeze({ fill: "#fdecea", line: "#e5b7af", text: "#8c2f1d", dot: "#b4442e" }),
+  high:     Object.freeze({ fill: "#fdf3e2", line: "#e3c9a0", text: "#8a5a08", dot: "#b8860b" }),
+  medium:   Object.freeze({ fill: "#fdf9e3", line: "#ddd4a6", text: "#6f5b10", dot: "#9c8415" }),
+  low:      Object.freeze({ fill: "#eaf3ed", line: "#b4cebf", text: "#2f6b47", dot: "#3f8f5e" }),
+  info:     Object.freeze({ fill: "#f4f4f5", line: "#d4d4d8", text: "#52525b", dot: "#71717a" }),
+});
+
+// A window counts as present only when it carries a finite number. The existing
+// usage service deliberately omits windows the API did not return, and a
+// fabricated 0% would read to a manager as "plenty of headroom left".
+function utilizationOf(window) {
+  if (!window || typeof window !== "object") return null;
+  for (const key of ["utilization", "percent"]) {
+    if (typeof window[key] === "number" && Number.isFinite(window[key])) return window[key];
+  }
+  return null;
+}
+
+/**
+ * Severity tier for one quota window.
+ * @param {object|null|undefined} window
+ * @returns {"critical"|"high"|"medium"|"low"|"info"}
+ */
+export function severityForWindow(window) {
+  const used = utilizationOf(window);
+  if (used === null) return "info";
+
+  const supplied = API_SEVERITY[String(window.severity || "").toLowerCase()];
+  if (supplied) return supplied;
+
+  if (used >= FALLBACK_THRESHOLDS.critical) return "critical";
+  if (used >= FALLBACK_THRESHOLDS.high) return "high";
+  if (used >= FALLBACK_THRESHOLDS.medium) return "medium";
+  return "low";
+}
+
+/**
+ * The window currently binding the account, per Anthropic's own `is_active`
+ * flag — not an assumption that it is always the 5-hour one.
+ * @param {Array<object>|null|undefined} limits
+ * @returns {object|null}
+ */
+export function pickActiveWindow(limits) {
+  if (!Array.isArray(limits) || limits.length === 0) return null;
+  const active = limits.find((l) => l?.is_active === true);
+  if (active) return active;
+  return limits.reduce((best, l) => {
+    const p = utilizationOf(l);
+    if (p === null) return best;
+    return best === null || p > utilizationOf(best) ? l : best;
+  }, null);
+}
