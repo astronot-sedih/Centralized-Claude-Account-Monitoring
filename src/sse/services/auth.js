@@ -86,6 +86,11 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
     // Filter out model-locked, excluded, and Antigravity quota-exhausted connections.
     const availableConnections = connections.filter(c => {
       if (excludeSet.has(c.id)) return false;
+      // Monitor-only: readable for quota reporting, never routed to. A separate
+      // axis from isActive on purpose — deactivating would also stop the
+      // monitoring the account was added for. Without this, adding teammates'
+      // accounts would spend their Pro quota on everyone else's requests.
+      if (c.providerSpecificData?.monitorOnly) return false;
       if (isModelLockActive(c, model)) return false;
       const enabled = c.providerSpecificData?.enabledModels;
       if (providerId === "codex" && Array.isArray(enabled) && enabled.length && requestedModel && !enabled.includes(requestedModel)) return false;
