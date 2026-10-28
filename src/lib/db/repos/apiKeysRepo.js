@@ -13,6 +13,8 @@ function rowToKey(row) {
     isActive: row.isActive === 1 || row.isActive === true,
     createdAt: row.createdAt,
     access: keyAccessFromColumns(row.accessRestricted, row.accessAllow),
+    // Hard pin to one provider connection; null = unpinned.
+    pinnedConnectionId: row.pinnedConnectionId || null,
   };
 }
 
