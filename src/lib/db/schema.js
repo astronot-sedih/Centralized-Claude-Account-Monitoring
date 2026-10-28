@@ -139,6 +139,38 @@ export const TABLES = {
       data: "TEXT NOT NULL",
     },
   },
+  // One row per account per quota read. Trend ("hit the limit on 5 of 7 days")
+  // is only answerable from a history, and the Claude quota API reports a
+  // point-in-time percentage with no past.
+  quotaSnapshots: {
+    columns: {
+      id: "INTEGER PRIMARY KEY AUTOINCREMENT",
+      capturedAt: "TEXT NOT NULL",
+      // Local date in the configured timezone, not UTC: a UTC boundary would
+      // split an Indonesian working day in half.
+      dateKey: "TEXT NOT NULL",
+      connectionId: "TEXT NOT NULL",
+      provider: "TEXT NOT NULL",
+      accountEmail: "TEXT",
+      plan: "TEXT",
+      source: "TEXT",
+      // Verbatim JSON of the usage service's quotas object. Anthropic adds and
+      // removes windows (per-model weeklies appeared mid-flight), so typed
+      // columns would need a migration each time.
+      quotas: "TEXT",
+      extraUsage: "TEXT",
+      resetCredits: "TEXT",
+      // 0 = the read failed. Persisted, never dropped: "we could not read this
+      // account" is reportable, and a missing row would understate usage.
+      ok: "INTEGER DEFAULT 1",
+      errorMessage: "TEXT",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_qs_captured ON quotaSnapshots(capturedAt DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_qs_conn ON quotaSnapshots(connectionId, capturedAt DESC)",
+      "CREATE INDEX IF NOT EXISTS idx_qs_datekey ON quotaSnapshots(dateKey)",
+    ],
+  },
   requestDetails: {
     columns: {
       id: "TEXT PRIMARY KEY",
