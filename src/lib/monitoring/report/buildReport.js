@@ -8,6 +8,23 @@ import { computeUnits, severityForWindow } from "../tokens.js";
 
 const MTOK = 1_000_000;
 
+// An account at or past this on any window is "at risk" for the summary line.
+export const AT_RISK_PERCENT = 90;
+// A window at this is spent — what "hit the limit" counts.
+export const LIMIT_PERCENT = 100;
+
+/**
+ * The fixed footnotes. Always present, never conditional: a reader who sees
+ * blank cells and no explanation concludes those people did no work, which is
+ * the single most costly misreading this report can produce.
+ */
+export const FOOTNOTES = Object.freeze([
+  "Kolom units dan estimasi biaya hanya terisi untuk akun yang jalan lewat 9router. Pemakaian dari Claude Desktop tidak bisa diukur per-akun.",
+  '"tak terukur" berarti alat ini tidak dapat mengukurnya — BUKAN berarti akunnya tidak dipakai. Lihat kolom kuota untuk pemakaian sebenarnya.',
+  "Angka biaya adalah estimasi setara harga API (USD), bukan tagihan. Paket Pro/Team ditagih per kursi, bukan per token.",
+  "Units dihitung berbobot: cache_creation x1,25 + cache_read x0,1 + input x1 + output x5.",
+]);
+
 // Human labels for the window keys the usage service produces. An unknown key
 // (Anthropic adds windows) falls through to its raw key rather than being
 // dropped — an unlabelled window is still information.
@@ -116,4 +133,68 @@ export function buildReportRows(input) {
       capturedAt: snap.capturedAt || null,
     };
   });
+}
+
+/**
+ * The whole report: rows, the decision-relevant summary, the sampling coverage
+ * those numbers rest on, and the footnotes.
+ *
+ * @param {object} input snapshots, usageByConnection, pricing, dateKey,
+ *                       samplesExpected, weekSnapshots
+ * @returns {object}
+ */
+export function buildReport(input) {
+  const {
+    dateKey = null,
+    samplesExpected = 0,
+    weekSnapshots = [],
+    now = () => new Date().toISOString(),
+  } = input || {};
+
+  const rows = buildReportRows(input);
+
+  const atRiskCount = rows.filter((r) =>
+    r.windows.some((w) => w.percent >= AT_RISK_PERCENT)
+  ).length;
+
+  // Distinct DAYS, not rows: one busy day with several spent windows is still
+  // one day, and counting rows would inflate the headline the Max case rests on.
+  const limitDays = new Set(
+    (weekSnapshots || [])
+      .filter((s) =>
+        Object.values(s?.quotas || {}).some(
+          (w) => (num(w?.used) ?? num(w?.utilization) ?? num(w?.percent)) >= LIMIT_PERCENT
+        )
+      )
+      .map((s) => s.dateKey)
+      .filter(Boolean)
+  );
+
+  // Coverage is computed from distinct capture instants, so a day the laptop
+  // slept through is visibly partial rather than quietly undercounting.
+  const samplesTaken = new Set(
+    (input?.snapshots || []).map((s) => s.capturedAt).filter(Boolean)
+  ).size;
+  const percent = samplesExpected > 0 ? (samplesTaken / samplesExpected) * 100 : 0;
+
+  return {
+    dateKey,
+    generatedAt: now(),
+    rows,
+    summary: {
+      atRiskCount,
+      limitDaysThisWeek: limitDays.size,
+      measuredCount: rows.filter((r) => r.measurable).length,
+      unmeasuredCount: rows.filter((r) => !r.measurable).length,
+      failedReadCount: rows.filter((r) => !r.ok).length,
+      accountCount: rows.length,
+    },
+    coverage: {
+      samplesTaken,
+      samplesExpected,
+      percent,
+      partial: samplesExpected > 0 && samplesTaken < samplesExpected,
+    },
+    footnotes: [...FOOTNOTES],
+  };
 }
