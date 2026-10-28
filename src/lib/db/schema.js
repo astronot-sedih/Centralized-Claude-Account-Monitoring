@@ -87,6 +87,10 @@ export const TABLES = {
       // syncSchemaFromTables() on boot; existing rows read as unrestricted (0).
       accessRestricted: "INTEGER DEFAULT 0",
       accessAllow: "TEXT",
+      // Hard-pins this key to one provider connection, so a teammate's traffic
+      // can only ever land on their own account and usage is attributed to the
+      // right person. NULL = unpinned = today's behaviour.
+      pinnedConnectionId: "TEXT",
     },
     indexes: ["CREATE INDEX IF NOT EXISTS idx_ak_key ON apiKeys(key)"],
   },

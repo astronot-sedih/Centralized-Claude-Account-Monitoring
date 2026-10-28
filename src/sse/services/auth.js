@@ -31,6 +31,12 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
     ? excludeConnectionIds
     : (excludeConnectionIds ? new Set([excludeConnectionIds]) : new Set());
   const preferredConnectionId = options?.preferredConnectionId || null;
+  // Unlike preferredConnectionId (a preference), a pin is a hard narrowing:
+  // the request uses this connection or none. It deliberately does NOT fall
+  // back to another account — a silent cross-account fallback would spend a
+  // teammate's quota and attribute the usage to them, which is exactly what
+  // the monitoring report must never report wrongly.
+  const pinnedConnectionId = options?.pinnedConnectionId || null;
   const requestedModel = options?.requestedModel || model;
   // Acquire mutex to prevent race conditions
   const currentMutex = selectionMutex;
@@ -85,6 +91,7 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
 
     // Filter out model-locked, excluded, and Antigravity quota-exhausted connections.
     const availableConnections = connections.filter(c => {
+      if (pinnedConnectionId && c.id !== pinnedConnectionId) return false;
       if (excludeSet.has(c.id)) return false;
       // Monitor-only: readable for quota reporting, never routed to. A separate
       // axis from isActive on purpose — deactivating would also stop the
