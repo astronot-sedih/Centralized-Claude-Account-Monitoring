@@ -1,3 +1,13 @@
+# Unreleased
+
+## Features
+- **Claude monitoring**: centralized per-account quota/usage reporting for a team of Claude seats — hourly quota snapshots (`quotaSnapshots`), a daily SMTP report with HTML and plain-text parts, and a `/dashboard/monitoring` page reading the same report object so screen and email cannot disagree. Quota comes from `api/oauth/usage` per OAuth token, so accounts used only from Claude Desktop are covered; token/cost figures exist only for traffic routed through 9router, and unmeasurable cells say so rather than showing 0. Ships disabled (`MONITOR_ENABLED=false`). See `docs/TEAM_MONITORING.md`
+- **Attribution**: `providerSpecificData.monitorOnly` keeps a connection readable for quota while excluding it from routing (a separate axis from `isActive`, which would also stop monitoring), and `apiKeys.pinnedConnectionId` hard-pins a key to one connection. A pinned key fails closed rather than falling over to a teammate's account, because a silent cross-account fallback is what corrupts per-person usage figures
+
+## Fixes
+- **Usage units**: `usageHistory` rows nest their counts inside a `tokens` object spelled `prompt_tokens` / `completion_tokens` / `cached_tokens`; the monitoring report scored every account 0 until it read that shape, and now subtracts the cached portion from the inclusive input so cache-heavy accounts are not overstated
+- **API keys**: `updateApiKey` writes an explicit column list, so `pinnedConnectionId` was silently dropped on every write
+
 # v0.5.112 (2026-10-28)
 
 ## Features
