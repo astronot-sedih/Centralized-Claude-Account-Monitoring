@@ -1,0 +1,88 @@
+// Wires the scheduler's injectable deps to the real collaborators.
+//
+// Kept separate from scheduler.js so that module stays unit-testable with no
+// DB, no SMTP and no clock, and separate from instrumentation.js so boot does
+// not grow report-assembly logic.
+
+import { getMeta, setMeta } from "@/lib/db/helpers/metaStore.js";
+import { getSnapshotsForDate } from "@/lib/db/repos/quotaSnapshotsRepo.js";
+import { getUsageHistory } from "@/lib/db/repos/usageRepo.js";
+import { getPricing } from "@/lib/db/repos/pricingRepo.js";
+import { buildReport } from "./report/buildReport.js";
+import { collectOnce } from "./quotaCollector.js";
+import { pruneSnapshotsOlderThan } from "@/lib/db/repos/quotaSnapshotsRepo.js";
+import { LAST_SENT_KEY, SAMPLE_INTERVAL_MS } from "./scheduler.js";
+import { dateKeyFor } from "./clock.js";
+
+function daysBack(dateKey, n) {
+  const d = new Date(`${dateKey}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Assembles the report for one local date from the stored snapshots, the proxy
+ * usage rows and the pricing table.
+ * @returns {Promise<object>} a report object (see buildReport)
+ */
+export async function assembleReport(dateKey, timeZone) {
+  const snapshots = await getSnapshotsForDate(dateKey);
+
+  // Seven days of snapshots, for "hit the limit on N of 7 days".
+  const weekSnapshots = [];
+  for (let i = 0; i < 7; i++) {
+    weekSnapshots.push(...(await getSnapshotsForDate(daysBack(dateKey, i))));
+  }
+
+  // Proxy usage for the day, grouped per connection. Claude only.
+  const usageByConnection = {};
+  const history = await getUsageHistory({ provider: "claude" }).catch(() => []);
+  for (const row of history || []) {
+    if (!row?.connectionId) continue;
+    if (dateKeyFor(new Date(row.timestamp), timeZone) !== dateKey) continue;
+    (usageByConnection[row.connectionId] ||= []).push(row);
+  }
+
+  const pricing = await getPricing().catch(() => ({}));
+
+  // samplesExpected = one sample per hour of the day, which is what the
+  // sampler aims for; coverage below that is reported, never hidden.
+  return buildReport({
+    dateKey,
+    samplesExpected: Math.round(86400000 / SAMPLE_INTERVAL_MS),
+    snapshots,
+    weekSnapshots,
+    usageByConnection,
+    pricing,
+  });
+}
+
+/**
+ * @param {object} config from monitorSettingsFromEnv()
+ * @param {{sendReportMail: Function}} services
+ * @returns {Promise<object>} deps for startScheduler/tick
+ */
+export async function buildMonitorTickDeps(config, services) {
+  const { sendReportMail } = services;
+
+  return {
+    // Re-read per beat: the send guard lives in the DB, so a restart mid-day
+    // cannot resend, and a config change takes effect without a reboot.
+    resolveDeps: async () => ({
+      ...config,
+      now: () => new Date(),
+      collectOnce,
+      pruneSnapshotsOlderThan,
+      lastSentDateKey: await getMeta(LAST_SENT_KEY, null),
+      setLastSentDateKey: (dateKey) => setMeta(LAST_SENT_KEY, dateKey),
+      sendReport: async ({ dateKey, timeZone }) => {
+        const report = await assembleReport(dateKey, timeZone);
+        const result = await sendReportMail(report, config);
+        // Throw on failure so the scheduler does NOT mark the day sent — one
+        // SMTP outage must not cost that day's report permanently.
+        if (!result?.sent) throw new Error(result?.reason || "send failed");
+        return true;
+      },
+    }),
+  };
+}
