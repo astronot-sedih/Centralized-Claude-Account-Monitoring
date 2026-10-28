@@ -160,3 +160,23 @@ describe("resolveSource", () => {
     })).toBe("9router");
   });
 });
+
+describe("collectOnce — account identity", () => {
+  it("stores the connection name, not just the email", async () => {
+    // Claude OAuth connections often have no email; without the name the
+    // report shows a raw UUID, which is useless to the person reading it.
+    const inserted = [];
+    await collectOnce({
+      getProviderConnections: async () => [
+        { id: "abc-123", provider: "claude", isActive: 1, name: "Rafli", email: null,
+          accessToken: "sk-ant-oat01-" + "x".repeat(60) },
+      ],
+      refreshAndUpdateCredentials: async (c) => ({ connection: c, refreshed: false }),
+      getClaudeUsage: async () => ({ quotas: { "session (5h)": { used: 5 } } }),
+      insertSnapshot: async (s) => { inserted.push(s); return 1; },
+      resolveSourceFor: async () => "desktop",
+      delay: async () => {},
+    });
+    expect(inserted[0].accountName).toBe("Rafli");
+  });
+});

@@ -30,15 +30,16 @@ export async function insertSnapshot(snap) {
   const db = await getAdapter();
   const res = db.run(
     `INSERT INTO quotaSnapshots
-       (capturedAt, dateKey, connectionId, provider, accountEmail, plan, source,
+       (capturedAt, dateKey, connectionId, provider, accountEmail, accountName, plan, source,
         quotas, extraUsage, resetCredits, ok, errorMessage)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       snap.capturedAt,
       snap.dateKey,
       snap.connectionId,
       snap.provider,
       snap.accountEmail ?? null,
+      snap.accountName ?? null,
       snap.plan ?? null,
       snap.source ?? null,
       toJsonCol(snap.quotas),

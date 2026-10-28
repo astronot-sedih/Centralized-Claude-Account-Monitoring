@@ -92,6 +92,9 @@ export async function collectOnce(deps = {}) {
       connectionId: conn.id,
       provider: PROVIDER,
       accountEmail: conn.email || null,
+      // Claude OAuth connections often carry no email; without the name the
+      // report would show a raw UUID to whoever reads it.
+      accountName: conn.name || null,
       source: null,
     };
 

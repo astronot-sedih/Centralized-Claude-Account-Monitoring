@@ -156,6 +156,7 @@ export const TABLES = {
       connectionId: "TEXT NOT NULL",
       provider: "TEXT NOT NULL",
       accountEmail: "TEXT",
+      accountName: "TEXT",
       plan: "TEXT",
       source: "TEXT",
       // Verbatim JSON of the usage service's quotas object. Anthropic adds and

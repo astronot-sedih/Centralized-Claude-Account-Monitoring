@@ -105,3 +105,8 @@ debug.log
 
 .superpowers/
 tools/monitoring-tracker/progress.sqlite*
+
+.playwright-cli/
+monitoring-page.yml
+AGENTS.md
+monitoring-*.png
