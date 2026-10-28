@@ -113,6 +113,7 @@ export function buildReportRows(input) {
         percent: percentOf(w),
         severity: severityForWindow({ ...w, utilization: percentOf(w) }),
         resetAt: w?.resetAt || w?.resets_at || null,
+        isActive: w?.isActive === true,
       }))
       .filter((w) => w.percent !== null);
 
@@ -128,10 +129,14 @@ export function buildReportRows(input) {
       ? records.reduce((sum, r) => sum + costForRecord(r, pricing, snap.provider || "claude"), 0)
       : null;
 
-    const earliestReset = windows
-      .map((w) => w.resetAt)
-      .filter(Boolean)
-      .sort()[0] || null;
+    // Spec §4.1: the reset of the window Anthropic marks ACTIVE — the one
+    // actually binding the account — not merely the soonest. For an account
+    // whose 5-hour window is idle and whose weekly window is the binding one,
+    // the earliest reset is the wrong number to show.
+    const activeWindow = windows.find((w) => w.isActive);
+    const nextReset = activeWindow?.resetAt
+      || windows.map((w) => w.resetAt).filter(Boolean).sort()[0]
+      || null;
 
     return {
       connectionId: snap.connectionId,
@@ -142,7 +147,7 @@ export function buildReportRows(input) {
       windows,
       units,
       costUsd,
-      resetAt: earliestReset,
+      resetAt: nextReset,
       measurable,
       ok: snap.ok === 1 || snap.ok === true,
       errorMessage: snap.errorMessage || null,
@@ -164,6 +169,7 @@ export function buildReport(input) {
     dateKey = null,
     samplesExpected = 0,
     weekSnapshots = [],
+    timeZone = "Asia/Jakarta",
     now = () => new Date().toISOString(),
   } = input || {};
 
@@ -186,15 +192,24 @@ export function buildReport(input) {
       .filter(Boolean)
   );
 
-  // Coverage is computed from distinct capture instants, so a day the laptop
-  // slept through is visibly partial rather than quietly undercounting.
+  // Coverage counts PASSES, not rows. The collector now stamps one instant per
+  // pass, but rows written before that fix carry a per-account instant, so
+  // bucket by the hour: the sampler runs hourly, and a pass cannot straddle an
+  // hour at 11 accounts x 1.5s. Without this an 11-account pass counted as 11
+  // samples and a 12.5%-covered day reported 137% with no partial warning.
   const samplesTaken = new Set(
-    (input?.snapshots || []).map((s) => s.capturedAt).filter(Boolean)
+    (input?.snapshots || [])
+      .map((s) => s.capturedAt)
+      .filter(Boolean)
+      .map((t) => String(t).slice(0, 13))
   ).size;
-  const percent = samplesExpected > 0 ? (samplesTaken / samplesExpected) * 100 : 0;
+  // Clamp: a legacy day with more buckets than expected must not read >100%.
+  const rawPercent = samplesExpected > 0 ? (samplesTaken / samplesExpected) * 100 : 0;
+  const percent = Math.min(100, rawPercent);
 
   return {
     dateKey,
+    timeZone,
     generatedAt: now(),
     rows,
     summary: {

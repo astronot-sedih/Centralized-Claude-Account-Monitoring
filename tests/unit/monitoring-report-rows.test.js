@@ -120,7 +120,9 @@ describe("buildReportRows — getUsageHistory's actual row shape", () => {
       },
       pricing: { claude: { "claude-opus-5": { input: 5, output: 25, cached: 0.5, cache_creation: 6.25 } } },
     });
-    expect(row.units).toBeCloseTo(200 * 1.25 + 900 * 0.1 + 100 + 100 * 5, 2);
+    // prompt_tokens 1000 is inclusive: cached 900 AND cache_creation 200 are
+    // subsets, so no uncached input remains to charge at 1x.
+    expect(row.units).toBeCloseTo(200 * 1.25 + 900 * 0.1 + 0 + 100 * 5, 2);
     expect(row.units).toBeGreaterThan(0);
   });
 
@@ -131,5 +133,28 @@ describe("buildReportRows — getUsageHistory's actual row shape", () => {
       pricing: {},
     });
     expect(row.costUsd).toBeCloseTo(1.25, 4);
+  });
+});
+
+describe("buildReportRows — reset time comes from the binding window", () => {
+  it("uses the is_active window, not merely the soonest", () => {
+    // Spec §4.1. An account whose 5h window is idle and whose weekly window is
+    // binding would otherwise show the wrong reset.
+    const [row] = buildReportRows({
+      snapshots: [snap("alice", { quotas: {
+        "session (5h)": { used: 4, resetAt: "2026-10-28T16:00:00Z" },
+        "weekly (7d)":  { used: 92, resetAt: "2026-11-03T14:00:00Z", isActive: true },
+      } })],
+      usageByConnection: {}, pricing: {},
+    });
+    expect(row.resetAt).toBe("2026-11-03T14:00:00Z");
+  });
+
+  it("falls back to the earliest reset when no window is marked active", () => {
+    const [row] = buildReportRows({
+      snapshots: [snap("alice")],
+      usageByConnection: {}, pricing: {},
+    });
+    expect(row.resetAt).toBe("2026-10-28T16:00:00Z");
   });
 });

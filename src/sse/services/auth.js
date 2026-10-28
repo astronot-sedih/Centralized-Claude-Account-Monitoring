@@ -37,6 +37,7 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
   // teammate's quota and attribute the usage to them, which is exactly what
   // the monitoring report must never report wrongly.
   const pinnedConnectionId = options?.pinnedConnectionId || null;
+  const pinnedProvider = options?.pinnedProvider || null;
   const requestedModel = options?.requestedModel || model;
   // Acquire mutex to prevent race conditions
   const currentMutex = selectionMutex;
@@ -89,9 +90,21 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
     const isAntigravity = providerId === "antigravity";
     const antigravityQuotaCache = isAntigravity && model ? getAntigravityQuotaCache() : null;
 
+    // A pin names ONE connection, which belongs to one provider. Ignore it for
+    // requests to a DIFFERENT provider — otherwise a key pinned to a Claude
+    // account would filter the codex list against a Claude id, match nothing,
+    // and be dead for all 40+ other providers. When the pin's provider is
+    // unknown (deleted connection) it still applies, so selection fails closed
+    // rather than quietly using someone else's account.
+    const pinApplies = Boolean(pinnedConnectionId) &&
+      (!pinnedProvider || pinnedProvider === providerId);
+
     // Filter out model-locked, excluded, and Antigravity quota-exhausted connections.
     const availableConnections = connections.filter(c => {
-      if (pinnedConnectionId && c.id !== pinnedConnectionId) return false;
+      // Within the pinned provider the pin stays hard: an excluded or
+      // monitor-only pinned connection yields nothing rather than failing over
+      // to a teammate's account, which is what would corrupt attribution.
+      if (pinApplies && c.id !== pinnedConnectionId) return false;
       if (excludeSet.has(c.id)) return false;
       // Monitor-only: readable for quota reporting, never routed to. A separate
       // axis from isActive on purpose — deactivating would also stop the

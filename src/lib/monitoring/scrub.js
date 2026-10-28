@@ -9,6 +9,10 @@
 // Order matters: specific shapes first, then the generic long-blob sweep.
 // Without that, the generic rule would eat half of a JWT and leave the rest.
 const PATTERNS = [
+  // Credentials inside a URL: proxy errors from proxyFetch carry the configured
+  // connectionProxyUrl verbatim, and those routinely contain user:pass@. That
+  // string would be persisted in a snapshot row and mailed out.
+  { re: /\/\/[^\s/@:]+:[^\s/@]+@/g, to: "//[redacted]@" },
   // Anthropic keys and OAuth tokens: sk-ant-api…, sk-ant-oat01-…
   /sk-ant-[A-Za-z0-9_-]+/g,
   // OpenAI-style, in case a mixed error string carries one
@@ -29,7 +33,12 @@ const PATTERNS = [
 export function scrubSecrets(text) {
   if (typeof text !== "string") return "";
   let out = text;
-  for (const re of PATTERNS) {
+  for (const entry of PATTERNS) {
+    if (entry instanceof RegExp === false) {
+      out = out.replace(entry.re, entry.to);
+      continue;
+    }
+    const re = entry;
     out = out.replace(re, (match) =>
       /^(Bearer|Basic)\s/i.test(match)
         ? `${match.split(/\s+/)[0]} [redacted]`

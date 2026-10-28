@@ -80,6 +80,11 @@ export async function collectOnce(deps = {}) {
   const connections = await listConnections({ provider: PROVIDER, isActive: true });
   const result = { attempted: 0, ok: 0, failed: 0 };
 
+  // ONE instant for the whole pass. Stamping per account made an 11-account
+  // pass look like 11 samples, so sampling coverage reported 137% on a day
+  // that was 12.5% covered — and suppressed the partial-day warning.
+  const passCapturedAt = now();
+
   for (let i = 0; i < connections.length; i++) {
     if (i > 0) await delay(COLLECT_DELAY_MS);
 
@@ -87,7 +92,7 @@ export async function collectOnce(deps = {}) {
     result.attempted++;
 
     const base = {
-      capturedAt: now(),
+      capturedAt: passCapturedAt,
       dateKey,
       connectionId: conn.id,
       provider: PROVIDER,
@@ -114,7 +119,12 @@ export async function collectOnce(deps = {}) {
 
       let proxyOptions = null;
       try {
-        proxyOptions = await resolveProxy(connection);
+        // providerSpecificData, not the connection: resolveConnectionProxyConfig
+        // reads proxyPoolId / connectionProxyEnabled off the top level of its
+        // argument. Passing the connection reported "no proxy" for a proxied
+        // account — failing the read, and sending the token direct for a pool
+        // whose whole point is strictProxy.
+        proxyOptions = await resolveProxy(connection.providerSpecificData);
       } catch {
         proxyOptions = null;
       }

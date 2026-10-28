@@ -48,9 +48,12 @@ const ALWAYS_PROTECTED = [
   "/api/oauth/zed/auto-import",
   "/api/oauth/minimax-code/lease",
   "/api/oauth/minimax-code-global/lease",
-  // Outbound action: sends the usage report by email. Must not be reachable
-  // through the requireLogin=false bypass.
+  // Outbound actions. Must not be reachable through the requireLogin=false
+  // bypass: send-test mails out, and collect triggers 11 OAuth refreshes plus
+  // 11 calls to Anthropic's usage endpoint — looping it would defeat the
+  // collector's sequential pacing and trip the 429 it exists to avoid.
   "/api/monitoring/send-test",
+  "/api/monitoring/collect",
 ];
 
 // Require auth, but allow through if requireLogin is disabled

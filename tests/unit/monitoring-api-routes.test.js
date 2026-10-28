@@ -49,3 +49,23 @@ describe("monitoring API routes", () => {
     }
   });
 });
+
+describe("outbound monitoring routes are hardened", () => {
+  it("puts collect in ALWAYS_PROTECTED too — it is an outbound action", () => {
+    // requireLogin=false must not expose 11 OAuth refreshes + 11 upstream
+    // quota calls to anyone who can reach the port.
+    const guard = read("../src/dashboardGuard.js");
+    const always = guard.slice(guard.indexOf("const ALWAYS_PROTECTED"), guard.indexOf("// Require auth, but allow"));
+    expect(always).toMatch(/monitoring\/collect/);
+  });
+
+  it("rate-limits collect", { timeout: 30000 }, async () => {
+    const mod = await import("../../src/app/api/monitoring/collect/route.js");
+    expect(mod.COLLECT_COOLDOWN_MS).toBeGreaterThanOrEqual(60000);
+  });
+
+  it("starts the send-test cooldown only after a successful send", () => {
+    const src = read("../src/app/api/monitoring/send-test/route.js");
+    expect(src).toMatch(/if \(result\.sent\) lastSentAt = Date\.now\(\)/);
+  });
+});

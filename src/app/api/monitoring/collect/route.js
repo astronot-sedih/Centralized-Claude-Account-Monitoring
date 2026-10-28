@@ -10,9 +10,24 @@ import { dateKeyFor } from "@/lib/monitoring/clock.js";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+// A pass is 11 accounts x 1.5s against a rate-limited upstream. Each call
+// starts a FRESH pass, so without a cooldown a loop of these defeats the
+// sequential pacing entirely.
+export const COLLECT_COOLDOWN_MS = 60000;
 const NO_STORE = { "Cache-Control": "no-store" };
 
+let lastCollectAt = 0;
+
 export async function POST() {
+  const since = Date.now() - lastCollectAt;
+  if (since < COLLECT_COOLDOWN_MS) {
+    return NextResponse.json(
+      { error: `rate limited, retry in ${Math.ceil((COLLECT_COOLDOWN_MS - since) / 1000)}s` },
+      { status: 429, headers: NO_STORE }
+    );
+  }
+  lastCollectAt = Date.now();
+
   try {
     const { timeZone } = monitorSettingsFromEnv();
     const result = await collectOnce({ dateKey: dateKeyFor(new Date(), timeZone) });

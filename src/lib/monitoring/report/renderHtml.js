@@ -52,11 +52,19 @@ const fmtNum = (n) =>
 const fmtUsd = (n) =>
   n == null ? null : `$${n < 0.01 && n > 0 ? n.toFixed(4) : n.toFixed(2)}`;
 
-function fmtTime(iso) {
+function fmtTime(iso, timeZone) {
   if (!iso) return "–";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "–";
-  return d.toISOString().slice(11, 16) + "Z";
+  // The report's own timezone, not UTC: a 23:00 Jakarta reset printed as
+  // "16:00Z" made the email disagree with the dashboard beside it.
+  try {
+    return new Intl.DateTimeFormat("en-GB", {
+      timeZone, hour: "2-digit", minute: "2-digit", hour12: false,
+    }).format(d);
+  } catch {
+    return d.toISOString().slice(11, 16);
+  }
 }
 
 /**
@@ -135,6 +143,7 @@ export function renderReportHtml(report) {
   const keys = windowKeys(rows);
   const s = report?.summary || {};
   const c = report?.coverage || {};
+  const tz = report?.timeZone || "Asia/Jakarta";
 
   const header = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin:0 0 16px 0">
   <tr><td>
@@ -182,7 +191,7 @@ export function renderReportHtml(report) {
             r.costUsd == null ? NA : esc(fmtUsd(r.costUsd)),
             "right",
             `font-family:${T.fontDisplay}`
-          )}${td(`<span style="font-family:${T.fontLabel};font-size:11px;color:${T.ink2}">${esc(fmtTime(r.resetAt))}</span>`)}</tr>`;
+          )}${td(`<span style="font-family:${T.fontLabel};font-size:11px;color:${T.ink2}">${esc(fmtTime(r.resetAt, tz))}</span>`)}</tr>`;
         })
         .join("")
     : `<tr>${td(`<span style="color:${T.muted}">Belum ada data snapshot.</span>`)}</tr>`;

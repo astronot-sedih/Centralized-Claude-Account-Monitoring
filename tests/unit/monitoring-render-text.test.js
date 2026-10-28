@@ -68,3 +68,20 @@ describe("renderReportText — column sizing", () => {
     expect(t).not.toContain("…");
   });
 });
+
+describe("renderReportText — reset times are local", () => {
+  it("renders reset in the report's timezone, not UTC", () => {
+    // A 23:00 Jakarta reset printed as 16:00Z, while the dashboard showed
+    // 23.00 — the two surfaces disagreeing is what buildReport exists to stop.
+    const r = buildReport({
+      dateKey: "2026-10-28", samplesExpected: 24, weekSnapshots: [],
+      usageByConnection: {}, pricing: {}, timeZone: "Asia/Jakarta",
+      snapshots: [{ connectionId: "a", accountEmail: "a@t.io", source: "desktop", ok: 1,
+                    capturedAt: "2026-10-28T15:00:00.000Z",
+                    quotas: { "session (5h)": { used: 10, resetAt: "2026-10-28T16:00:00Z" } } }],
+    });
+    const t = renderReportText(r);
+    expect(t).toContain("23:00");     // 16:00Z is 23:00 in Jakarta
+    expect(t).not.toContain("16:00Z");
+  });
+});

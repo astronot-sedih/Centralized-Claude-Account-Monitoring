@@ -36,11 +36,20 @@ const FIELD_ALIASES = {
   output: ["output_tokens", "completionTokens", "completion_tokens"],
 };
 
-// In the `tokens` JSON shape, prompt_tokens is the TOTAL input including the
-// cached part, which is billed at 0.1x rather than 1x. Counting both in full
-// would overstate a cache-heavy account — exactly the accounts this report is
-// meant to compare.
-const INPUT_INCLUDES_CACHE = { input: "prompt_tokens", cache: "cached_tokens" };
+// In the `tokens` JSON shape, prompt_tokens is the TOTAL input and BOTH cache
+// figures are subsets of it — see canonicalizeUsage in
+// open-sse/utils/usageTracking.js:149 ("prompt_tokens = total input INCLUDING
+// cache read + cache creation") and the same subtraction in
+// calculateCostFromTokens (open-sse/providers/pricing.js:481).
+//
+// Subtract both, or each is charged twice: once at 1x inside the residual
+// input and again at its own weight. Measured on 2000 live rows, missing
+// cache_creation alone overstated units by 28.9% — and in the direction that
+// argues for the upgrade this report is meant to adjudicate.
+const INPUT_INCLUDES_CACHE = {
+  input: "prompt_tokens",
+  subsets: ["cached_tokens", "cache_creation_input_tokens"],
+};
 
 // A missing, null or non-numeric field counts as zero. Returning NaN here would
 // propagate silently into a report figure, which is worse than undercounting.
@@ -67,12 +76,12 @@ export function computeUnits(usage) {
   const parts = {};
   for (const key of Object.keys(UNIT_WEIGHTS)) parts[key] = read(usage, key);
 
-  // Subtract the cached portion from input when this record's input field is
-  // the inclusive one, so the cache discount applies instead of being added on
-  // top of a full-price input.
-  const { input, cache } = INPUT_INCLUDES_CACHE;
-  if (input in usage && cache in usage) {
-    parts.input = Math.max(0, parts.input - num(usage[cache]));
+  // Subtract every cache subset from input when this record uses the inclusive
+  // spelling, so each is weighted once at its own rate.
+  const { input, subsets } = INPUT_INCLUDES_CACHE;
+  if (input in usage) {
+    for (const key of subsets) if (key in usage) parts.input -= num(usage[key]);
+    parts.input = Math.max(0, parts.input);
   }
 
   let total = 0;

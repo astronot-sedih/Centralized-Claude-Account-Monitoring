@@ -11,7 +11,7 @@ import { getPricing } from "@/lib/db/repos/pricingRepo.js";
 import { buildReport } from "./report/buildReport.js";
 import { collectOnce } from "./quotaCollector.js";
 import { pruneSnapshotsOlderThan } from "@/lib/db/repos/quotaSnapshotsRepo.js";
-import { LAST_SENT_KEY, SAMPLE_INTERVAL_MS } from "./scheduler.js";
+import { LAST_SENT_KEY, LAST_PRUNED_KEY, SAMPLE_INTERVAL_MS } from "./scheduler.js";
 import { dateKeyFor } from "./clock.js";
 
 function daysBack(dateKey, n) {
@@ -35,8 +35,17 @@ export async function assembleReport(dateKey, timeZone) {
   }
 
   // Proxy usage for the day, grouped per connection. Claude only.
+  //
+  // Bounded by date at the SQL level: without it this selected the ENTIRE
+  // history (50k+ rows on a months-old install) on every dashboard load, and
+  // grew forever. +/- 1 day because the stored timestamp is a UTC instant and
+  // dateKey is local, so the local day straddles two UTC days.
   const usageByConnection = {};
-  const history = await getUsageHistory({ provider: "claude" }).catch(() => []);
+  const history = await getUsageHistory({
+    provider: "claude",
+    startDate: `${daysBack(dateKey, 1)}T00:00:00.000Z`,
+    endDate: `${daysBack(dateKey, -1)}T23:59:59.999Z`,
+  }).catch(() => []);
   for (const row of history || []) {
     if (!row?.connectionId) continue;
     if (dateKeyFor(new Date(row.timestamp), timeZone) !== dateKey) continue;
@@ -75,6 +84,8 @@ export async function buildMonitorTickDeps(config, services) {
       pruneSnapshotsOlderThan,
       lastSentDateKey: await getMeta(LAST_SENT_KEY, null),
       setLastSentDateKey: (dateKey) => setMeta(LAST_SENT_KEY, dateKey),
+      lastPrunedDateKey: await getMeta(LAST_PRUNED_KEY, null),
+      setLastPrunedDateKey: (dateKey) => setMeta(LAST_PRUNED_KEY, dateKey),
       sendReport: async ({ dateKey, timeZone }) => {
         const report = await assembleReport(dateKey, timeZone);
         const result = await sendReportMail(report, config);

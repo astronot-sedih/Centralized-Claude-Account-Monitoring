@@ -97,6 +97,11 @@ async function fetchClaudeUsageRaw(accessToken, proxyOptions = null) {
           remainingPercentage: remaining,
           resetAt: parseResetTime(window.resets_at),
           unlimited: false,
+          // Anthropic ships its own severity and marks which window is
+          // currently binding. Consumers prefer these over recomputing from a
+          // percentage, so dropping them here made that preference dead code.
+          ...(window.severity ? { severity: window.severity } : {}),
+          ...(window.is_active === true ? { isActive: true } : {}),
         };
       };
 
@@ -128,6 +133,8 @@ async function fetchClaudeUsageRaw(accessToken, proxyOptions = null) {
           quotas[`weekly ${modelName} (7d)`] = createQuotaObject({
             utilization: Math.max(0, Math.min(100, limit.percent)),
             resets_at: limit.resets_at,
+            severity: limit.severity,
+            is_active: limit.is_active,
           });
         }
       }

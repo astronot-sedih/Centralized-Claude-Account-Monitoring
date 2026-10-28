@@ -7,7 +7,7 @@ import {
   extractApiKey,
   isValidApiKey,
 } from "../services/auth.js";
-import { resolvePinnedConnectionId } from "../services/keyPinning.js";
+import { resolvePin } from "../services/keyPinning.js";
 import { handleAntigravityQuotaError, clearAntigravityStrikes } from "../services/antigravityQuota.js";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo, getComboModels } from "../services/model.js";
@@ -280,10 +280,10 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
   // Resolved once per request, not per retry: a pinned key must land on its own
   // connection every time, so usage is attributed to the person who made the
   // call. A pinned key does not fail over to another account.
-  const pinnedConnectionId = await resolvePinnedConnectionId(request);
+  const { connectionId: pinnedConnectionId, provider: pinnedProvider } = await resolvePin(request);
 
   while (true) {
-    const credentials = await getProviderCredentials(provider, excludeConnectionIds, model, { requestedModel: requestedModel || model, pinnedConnectionId });
+    const credentials = await getProviderCredentials(provider, excludeConnectionIds, model, { requestedModel: requestedModel || model, pinnedConnectionId, pinnedProvider });
 
     // All accounts unavailable
     if (!credentials || credentials.allRateLimited) {

@@ -68,17 +68,18 @@ describe("tick", () => {
     expect(r.sent).toBe(true);        // a bad sample must not suppress the report
   });
 
-  it("prunes past the retention window after sending, not on every tick", async () => {
-    // 90 days, spec §5.1. Pruning hourly would be wasted writes; never
-    // pruning lets ~/.9router grow without bound.
+  it("prunes past the retention window once a day, not on every tick", async () => {
+    // 90 days, spec §5.1. Pruning hourly would be wasted writes; never pruning
+    // lets ~/.9router grow without bound. Keyed on lastPrunedDateKey, NOT on
+    // the send — see "pruning is not hostage to email" below.
     const prune = vi.fn(async () => 0);
-    const sent = await tick(deps({ pruneSnapshotsOlderThan: prune }));
-    expect(sent.sent).toBe(true);
+    const first = await tick(deps({ pruneSnapshotsOlderThan: prune }));
     expect(RETENTION_DAYS).toBe(90);
+    expect(first.pruned).toBe(true);
     expect(prune).toHaveBeenCalledWith("2026-07-30");   // 90 days before 2026-10-28
 
     prune.mockClear();
-    await tick(deps({ lastSentDateKey: "2026-10-28", pruneSnapshotsOlderThan: prune }));
+    await tick(deps({ lastPrunedDateKey: "2026-10-28", pruneSnapshotsOlderThan: prune }));
     expect(prune).not.toHaveBeenCalled();
   });
 
@@ -102,5 +103,30 @@ describe("startScheduler", () => {
     const stop2 = startScheduler(deps());
     expect(stop2).toBe(null);          // Next dev-mode double-invocation
     stop1();
+  });
+});
+
+describe("tick — pruning is not hostage to email", () => {
+  it("prunes once a day even when no report is sent", async () => {
+    // The intended "sample hourly, read the dashboard, skip email" mode never
+    // sends, so gating prune on a successful send meant ~96k rows/year
+    // accumulating and the 90-day retention never applying.
+    const prune = vi.fn(async () => 0);
+    const setLastPruned = vi.fn(async () => {});
+    const r = await tick(deps({
+      sendReport: vi.fn(async () => { throw new Error("no SMTP host configured"); }),
+      pruneSnapshotsOlderThan: prune,
+      lastPrunedDateKey: "2026-10-27",
+      setLastPrunedDateKey: setLastPruned,
+    }));
+    expect(r.sent).toBe(false);
+    expect(prune).toHaveBeenCalledWith("2026-07-30");
+    expect(setLastPruned).toHaveBeenCalledWith("2026-10-28");
+  });
+
+  it("prunes at most once per local day", async () => {
+    const prune = vi.fn(async () => 0);
+    await tick(deps({ lastPrunedDateKey: "2026-10-28", pruneSnapshotsOlderThan: prune }));
+    expect(prune).not.toHaveBeenCalled();
   });
 });

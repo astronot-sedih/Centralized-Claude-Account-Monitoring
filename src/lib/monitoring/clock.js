@@ -9,13 +9,26 @@ export const DEFAULT_TZ = "Asia/Jakarta";
 
 // Intl rather than manual offset arithmetic, so DST and offset changes are the
 // platform's problem rather than ours.
+//
+// Memoized: constructing a DateTimeFormat costs ~0.17ms, and the report path
+// calls this once per usage row. Measured at 8.4s for 50k calls before the
+// cache, on an interactive dashboard route.
+const formatterCache = new Map();
+
 function formatter(timeZone, options) {
+  const cacheKey = `${timeZone}|${JSON.stringify(options)}`;
+  const hit = formatterCache.get(cacheKey);
+  if (hit) return hit;
+
+  let made;
   try {
-    return new Intl.DateTimeFormat("en-CA", { timeZone, ...options });
+    made = new Intl.DateTimeFormat("en-CA", { timeZone, ...options });
   } catch {
     // An operator typo in MONITOR_TZ must not crash the scheduler every tick.
-    return new Intl.DateTimeFormat("en-CA", { timeZone: DEFAULT_TZ, ...options });
+    made = new Intl.DateTimeFormat("en-CA", { timeZone: DEFAULT_TZ, ...options });
   }
+  formatterCache.set(cacheKey, made);
+  return made;
 }
 
 /**

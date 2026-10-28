@@ -66,3 +66,26 @@ describe("scrubSecrets — adversarial", () => {
       .toBe("Claude connected. Unable to fetch usage: 429");
   });
 });
+
+describe("scrubSecrets — proxy credentials", () => {
+  it("redacts user:pass embedded in a proxy URL", () => {
+    // proxyFetch puts the configured connectionProxyUrl into its error text,
+    // and that URL routinely carries credentials. The collector persists that
+    // string and the mailer sends it.
+    const out = scrubSecrets("connect ECONNREFUSED http://bob:hunter2@proxy.local:8080");
+    expect(out).not.toContain("hunter2");
+    expect(out).not.toContain("bob:");
+    expect(out).toContain("proxy.local");   // still diagnosable
+  });
+
+  it("handles socks and https proxy URLs too", () => {
+    expect(scrubSecrets("socks5://u:p@10.0.0.1:1080 failed")).not.toContain("u:p@");
+    expect(scrubSecrets("[ProxyFetch] Proxy required but failed (strictProxy=true): https://admin:s3cr3t@gw:3128"))
+      .not.toContain("s3cr3t");
+  });
+
+  it("leaves a credential-free URL intact", () => {
+    expect(scrubSecrets("connect ETIMEDOUT http://proxy.local:8080"))
+      .toBe("connect ETIMEDOUT http://proxy.local:8080");
+  });
+});

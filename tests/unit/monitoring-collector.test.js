@@ -180,3 +180,47 @@ describe("collectOnce — account identity", () => {
     expect(inserted[0].accountName).toBe("Rafli");
   });
 });
+
+describe("collectOnce — one capturedAt per pass", () => {
+  it("stamps every account in a pass with the same instant", async () => {
+    // Stamping per account made a pass look like N samples, so sampling
+    // coverage read 137% on a day that was 12.5% covered.
+    const inserted = [];
+    let t = 0;
+    await collectOnce({
+      getProviderConnections: async () => [conn("a"), conn("b"), conn("c")],
+      refreshAndUpdateCredentials: async (c) => ({ connection: c, refreshed: false }),
+      getClaudeUsage: async () => ({ quotas: { "session (5h)": { used: 1 } } }),
+      insertSnapshot: async (s) => { inserted.push(s); return 1; },
+      resolveSourceFor: async () => "desktop",
+      delay: async () => {},
+      now: () => `2026-10-28T09:00:0${t++}.000Z`,   // would differ if called per account
+    });
+    const stamps = new Set(inserted.map((s) => s.capturedAt));
+    expect(stamps.size).toBe(1);
+  });
+});
+
+describe("collectOnce — proxy resolution", () => {
+  it("passes providerSpecificData, as every other caller does", async () => {
+    // resolveConnectionProxyConfig reads proxyPoolId / connectionProxyEnabled
+    // off the TOP LEVEL of its argument. Passing the whole connection yields
+    // "no proxy" for a connection that has one — so an account reachable only
+    // through a proxy fails forever, and a pool with strictProxy:true has its
+    // OAuth token sent over the direct connection instead.
+    let got = "unset";
+    await collectOnce({
+      getProviderConnections: async () => [
+        conn("a", { providerSpecificData: { proxyPoolId: "pool-1" } }),
+      ],
+      refreshAndUpdateCredentials: async (c) => ({ connection: c, refreshed: false }),
+      getClaudeUsage: async () => ({ quotas: { "session (5h)": { used: 1 } } }),
+      insertSnapshot: async () => 1,
+      resolveSourceFor: async () => "desktop",
+      resolveProxy: async (arg) => { got = arg; return null; },
+      delay: async () => {},
+    });
+    expect(got).toEqual({ proxyPoolId: "pool-1" });
+    expect(got.id).toBeUndefined();   // not the whole connection
+  });
+});

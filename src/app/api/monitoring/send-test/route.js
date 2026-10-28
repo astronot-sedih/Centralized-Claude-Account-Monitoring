@@ -29,14 +29,16 @@ export async function POST() {
       { status: 429, headers: NO_STORE }
     );
   }
-  lastSentAt = Date.now();
-
   try {
     const config = monitorSettingsFromEnv();
     const dateKey = dateKeyFor(new Date(), config.timeZone);
     const report = await assembleReport(dateKey, config.timeZone);
     // sendReportMail already scrubs its reason; it never returns credentials.
     const result = await sendReportMail(report, config);
+    // Only a successful send starts the cooldown: locking the operator out for
+    // a minute after a FAILED attempt punishes exactly the setup iteration
+    // this endpoint exists for.
+    if (result.sent) lastSentAt = Date.now();
     return NextResponse.json(result, { status: result.sent ? 200 : 400, headers: NO_STORE });
   } catch (error) {
     return NextResponse.json({ sent: false, reason: error.message }, { status: 500, headers: NO_STORE });

@@ -13,6 +13,7 @@ import { pruneSnapshotsOlderThan as realPrune } from "@/lib/db/repos/quotaSnapsh
 export const SAMPLE_INTERVAL_MS = 3600000;
 export const RETENTION_DAYS = 90;
 const LAST_SENT_KEY = "monitorLastSentDateKey";
+const LAST_PRUNED_KEY = "monitorLastPrunedDateKey";
 
 function shiftDays(dateKey, days) {
   const d = new Date(`${dateKey}T00:00:00Z`);
@@ -38,6 +39,8 @@ export async function tick(deps = {}) {
     lastSentDateKey = null,
     setLastSentDateKey,
     pruneSnapshotsOlderThan = realPrune,
+    lastPrunedDateKey = null,
+    setLastPrunedDateKey,
   } = deps;
 
   const result = { sampled: false, sent: false, pruned: false, reason: "" };
@@ -72,11 +75,13 @@ export async function tick(deps = {}) {
     }
   }
 
-  // Pruning rides on a successful send: hourly would be wasted writes, never
-  // would let ~/.9router grow without bound.
-  if (result.sent) {
+  // Pruning is daily and INDEPENDENT of the send. Gating it on a successful
+  // send meant the "sample hourly, read the dashboard, skip email" mode never
+  // pruned at all, so retention silently never applied.
+  if (lastPrunedDateKey !== todayKey) {
     try {
       await pruneSnapshotsOlderThan(shiftDays(todayKey, -RETENTION_DAYS));
+      if (typeof setLastPrunedDateKey === "function") await setLastPrunedDateKey(todayKey);
       result.pruned = true;
     } catch (error) {
       result.reason = `${result.reason ? result.reason + "; " : ""}prune failed: ${error?.message || error}`;
@@ -100,7 +105,14 @@ export function startScheduler(deps = {}) {
 
   const resolveDeps = deps.resolveDeps || (async () => deps);
 
+  // One beat at a time. A pass is 11 accounts x 1.5s plus network, well inside
+  // an hour today — but a hung upstream must not leave two collectOnce runs
+  // interleaved against a rate-limited endpoint.
+  let beating = false;
+
   const beat = async () => {
+    if (beating) return;
+    beating = true;
     try {
       const d = await resolveDeps();
       // Read the guard fresh each beat: it lives in the DB, not in memory, so a
@@ -108,6 +120,8 @@ export function startScheduler(deps = {}) {
       await tick(d);
     } catch (error) {
       console.warn(`[monitoring] scheduler beat failed: ${error?.message || error}`);
+    } finally {
+      beating = false;
     }
   };
 
@@ -123,4 +137,4 @@ export function startScheduler(deps = {}) {
   };
 }
 
-export { LAST_SENT_KEY };
+export { LAST_SENT_KEY, LAST_PRUNED_KEY };

@@ -80,3 +80,33 @@ describe("buildReport summary", () => {
     expect(r.generatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 });
+
+describe("buildReport coverage — passes, not rows", () => {
+  // The collector stamps capturedAt once PER CONNECTION inside its loop, so a
+  // single hourly pass over 11 accounts produces 11 distinct instants. Counting
+  // instants reported 137.5% coverage on a day that was 12.5% sampled — and
+  // suppressed the partial warning entirely.
+  const pass = (hour, accounts) =>
+    Array.from({ length: accounts }, (_, i) => ({
+      connectionId: `c${i}`, source: "desktop", ok: 1,
+      // seconds apart, as the 1500ms inter-account delay produces
+      capturedAt: `2026-10-28T${String(hour).padStart(2, "0")}:00:${String(i * 2).padStart(2, "0")}.000Z`,
+      quotas: { "session (5h)": { used: 5 } },
+    }));
+
+  it("counts one sample per pass however many accounts it covered", () => {
+    const snapshots = [...pass(9, 11), ...pass(10, 11), ...pass(11, 11)];
+    const r = buildReport({ ...base, snapshots });
+    expect(r.coverage.samplesTaken).toBe(3);
+    expect(r.coverage.percent).toBeCloseTo(12.5, 1);
+    expect(r.coverage.partial).toBe(true);
+  });
+
+  it("never reports more than 100% coverage", () => {
+    const snapshots = Array.from({ length: 24 }, (_, h) => pass(h, 11)).flat();
+    const r = buildReport({ ...base, snapshots });
+    expect(r.coverage.samplesTaken).toBe(24);
+    expect(r.coverage.percent).toBeLessThanOrEqual(100);
+    expect(r.coverage.partial).toBe(false);
+  });
+});

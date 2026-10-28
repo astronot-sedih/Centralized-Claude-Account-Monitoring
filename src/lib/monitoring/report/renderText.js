@@ -14,10 +14,19 @@ const fmtNum = (n) =>
 const fmtUsd = (n) =>
   n == null ? NA : `$${n < 0.01 && n > 0 ? n.toFixed(4) : n.toFixed(2)}`;
 
-function fmtTime(iso) {
+function fmtTime(iso, timeZone) {
   if (!iso) return "-";
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "-" : d.toISOString().slice(11, 16) + "Z";
+  if (Number.isNaN(d.getTime())) return "-";
+  // The report's own timezone, not UTC: a 23:00 Jakarta reset printed as
+  // "16:00Z" made the email disagree with the dashboard beside it.
+  try {
+    return new Intl.DateTimeFormat("en-GB", {
+      timeZone, hour: "2-digit", minute: "2-digit", hour12: false,
+    }).format(d);
+  } catch {
+    return d.toISOString().slice(11, 16);
+  }
 }
 
 function windowKeys(rows) {
@@ -51,6 +60,7 @@ export function renderReportText(report) {
   const rows = report?.rows || [];
   const keys = windowKeys(rows);
   const s = report?.summary || {};
+  const tz = report?.timeZone || "Asia/Jakarta";
   const c = report?.coverage || {};
 
   // Window columns size to their widest label (per-model names like
@@ -110,7 +120,7 @@ export function renderReportText(report) {
             .join("") +
           "  " + pad(fmtNum(r.units), W.units, true) +
           "  " + pad(fmtUsd(r.costUsd), W.cost, true) +
-          "  " + pad(fmtTime(r.resetAt), W.reset)
+          "  " + pad(fmtTime(r.resetAt, tz), W.reset)
       );
       if (!r.ok) {
         out.push(`${" ".repeat(2)}! gagal dibaca: ${r.errorMessage || "tidak diketahui"}`);
