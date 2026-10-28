@@ -85,19 +85,44 @@ const API_SEVERITY = {
 };
 
 /**
- * Neutral DS `--sev-*` tiers as literal hex.
+ * Dakara DS `--sev-*` tiers, resolved to literal hex for the light surface.
  *
- * Literal, not `var(--sev-critical)`, because email HTML cannot use CSS custom
- * properties (spec §4.3) and both surfaces must read one map or they drift.
- * Shape per tier follows the Badge/InfoBanner soft pattern: soft `fill`, 1px
- * `line`, `text` for the label, `dot` for the 6px marker.
+ * Values are the design system's own, from `dakara-ds/tokens.css`:
+ *   --sev-critical #c92e2e  --sev-high #ff8a1f  --sev-medium #f0ab00
+ *   --sev-low      #10a45a  --sev-info #3578b5
+ *
+ * `fill` / `line` / `text` are its `color-mix` derivations from
+ * `dakara-ds/colors_and_type.css`, precomputed because email HTML supports
+ * neither `color-mix()` nor custom properties (spec §4.3):
+ *   soft = sev mixed p% with transparent  (critical/high/low 14%, medium 16%, info 14%)
+ *   line = sev mixed p% with transparent  (critical/high/low 50%, medium 55%, info 45%)
+ *   text = sev mixed p% with --ink        (critical 80%, high 58%, medium 45%, low 65%, info 70%)
+ *
+ * The transparent mixes are composited on white, since an email body is white
+ * and `rgba()` over an unknown client background is not. `--ink` is the light
+ * theme's `--sb-ink` (#0b0d10). The dashboard page keeps using the live CSS
+ * variables so it themes correctly in dark mode; this map is the email's
+ * flattened copy of the same system, and the one place to change if the brand
+ * ramp moves.
  */
 export const SEV_TOKENS = Object.freeze({
-  critical: Object.freeze({ fill: "#fdecea", line: "#e5b7af", text: "#8c2f1d", dot: "#b4442e" }),
-  high:     Object.freeze({ fill: "#fdf3e2", line: "#e3c9a0", text: "#8a5a08", dot: "#b8860b" }),
-  medium:   Object.freeze({ fill: "#fdf9e3", line: "#ddd4a6", text: "#6f5b10", dot: "#9c8415" }),
-  low:      Object.freeze({ fill: "#eaf3ed", line: "#b4cebf", text: "#2f6b47", dot: "#3f8f5e" }),
-  info:     Object.freeze({ fill: "#f4f4f5", line: "#d4d4d8", text: "#52525b", dot: "#71717a" }),
+  critical: Object.freeze({ fill: "#f7e2e2", line: "#e49797", text: "#a32728", dot: "#c92e2e" }),
+  high:     Object.freeze({ fill: "#ffefe0", line: "#ffc58f", text: "#995619", dot: "#ff8a1f" }),
+  medium:   Object.freeze({ fill: "#fdf2d6", line: "#f7d173", text: "#725409", dot: "#f0ab00" }),
+  low:      Object.freeze({ fill: "#def2e8", line: "#88d2ad", text: "#0e6f40", dot: "#10a45a" }),
+  info:     Object.freeze({ fill: "#e3ecf5", line: "#a4c2de", text: "#285884", dot: "#3578b5" }),
+});
+
+/**
+ * The live CSS custom properties the dashboard uses, so React components theme
+ * with the design system instead of hardcoding the email's flattened hex.
+ */
+export const SEV_CSS_VARS = Object.freeze({
+  critical: Object.freeze({ fill: "var(--sev-critical-soft)", line: "var(--sev-critical-line)", text: "var(--sev-critical-text)", dot: "var(--sev-critical)" }),
+  high:     Object.freeze({ fill: "var(--sev-high-soft)",     line: "var(--sev-high-line)",     text: "var(--sev-high-text)",     dot: "var(--sev-high)" }),
+  medium:   Object.freeze({ fill: "var(--sev-medium-soft)",   line: "var(--sev-medium-line)",   text: "var(--sev-medium-text)",   dot: "var(--sev-medium)" }),
+  low:      Object.freeze({ fill: "var(--sev-low-soft)",      line: "var(--sev-low-line)",      text: "var(--sev-low-text)",      dot: "var(--sev-low)" }),
+  info:     Object.freeze({ fill: "var(--sev-info-soft)",     line: "var(--sev-info-line)",     text: "var(--sev-info-text)",     dot: "var(--sev-info)" }),
 });
 
 // A window counts as present only when it carries a finite number. The existing

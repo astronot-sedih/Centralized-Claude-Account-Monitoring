@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  severityForWindow, pickActiveWindow, FALLBACK_THRESHOLDS, SEV_TOKENS,
+  severityForWindow, pickActiveWindow, FALLBACK_THRESHOLDS, SEV_TOKENS, SEV_CSS_VARS,
 } from "../../src/lib/monitoring/tokens.js";
 
 describe("severityForWindow", () => {
@@ -60,5 +60,28 @@ describe("pickActiveWindow", () => {
   it("returns null for empty or missing input", () => {
     expect(pickActiveWindow([])).toBe(null);
     expect(pickActiveWindow(null)).toBe(null);
+  });
+});
+
+describe("SEV_TOKENS provenance", () => {
+  it("carries the dakara-ds solid severity colours as the dot", () => {
+    // dakara-ds/tokens.css --sev-*: these are the design system's values, not
+    // ours. If the brand ramp moves, this test is what catches the drift.
+    expect(SEV_TOKENS.critical.dot).toBe("#c92e2e");
+    expect(SEV_TOKENS.high.dot).toBe("#ff8a1f");
+    expect(SEV_TOKENS.medium.dot).toBe("#f0ab00");
+    expect(SEV_TOKENS.low.dot).toBe("#10a45a");
+    expect(SEV_TOKENS.info.dot).toBe("#3578b5");
+  });
+
+  it("exposes live CSS variables for the dashboard, which must theme in dark mode", () => {
+    // The email needs flattened hex; the page must NOT use it or dark mode breaks.
+    expect(SEV_CSS_VARS.critical.fill).toBe("var(--sev-critical-soft)");
+    expect(SEV_CSS_VARS.critical.text).toBe("var(--sev-critical-text)");
+    for (const tier of ["critical", "high", "medium", "low", "info"]) {
+      for (const slot of ["fill", "line", "text", "dot"]) {
+        expect(SEV_CSS_VARS[tier][slot]).toMatch(/^var\(--sev-/);
+      }
+    }
   });
 });
