@@ -1060,6 +1060,27 @@ export default function ProviderDetailPage() {
                   scheduleSummary: getScheduleSlotLabels(autoPing.schedules?.[conn.id]).join(" / "),
                   onConfigure: () => setScheduleConnection(conn),
                 } : null}
+                onToggleMonitorOnly={async (monitorOnly) => {
+                  // Monitor-only keeps the account ACTIVE (so the quota
+                  // collector still reads it) while excluding it from routing,
+                  // so a teammate's Pro quota is never spent by someone else.
+                  try {
+                    const res = await fetch(`/api/providers/${conn.id}`, {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ providerSpecificData: { ...conn.providerSpecificData, monitorOnly } }),
+                    });
+                    if (res.ok) {
+                      setConnections(prev => prev.map(c =>
+                        c.id === conn.id
+                          ? { ...c, providerSpecificData: { ...c.providerSpecificData, monitorOnly } }
+                          : c
+                      ));
+                    }
+                  } catch (error) {
+                    console.log("Error updating monitorOnly:", error);
+                  }
+                }}
                 onUpdateProxy={async (proxyPoolId) => {
                   try {
                     const res = await fetch(`/api/providers/${conn.id}`, {

@@ -7,7 +7,7 @@ import PropTypes from "prop-types";
 import { Badge, Toggle, Tooltip } from "@/shared/components";
 import CooldownTimer from "./CooldownTimer";
 
-export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMoveUp, onMoveDown, onToggleActive, onUpdateProxy, onEdit, onDelete, oneByOneStatus = null, autoPing = null }) {
+export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst, isLast, onMoveUp, onMoveDown, onToggleActive, onToggleMonitorOnly, onUpdateProxy, onEdit, onDelete, oneByOneStatus = null, autoPing = null }) {
   const [showProxyDropdown, setShowProxyDropdown] = useState(false);
   const [updatingProxy, setUpdatingProxy] = useState(false);
   const proxyDropdownRef = useRef(null);
@@ -319,6 +319,23 @@ export default function ConnectionRow({ connection, proxyPools, isOAuth, isFirst
             <span className="text-[10px] leading-tight">Delete</span>
           </button>
         </div>
+        {onToggleMonitorOnly ? (
+          <button
+            type="button"
+            onClick={() => onToggleMonitorOnly(!connection.providerSpecificData?.monitorOnly)}
+            className={`flex flex-col items-center rounded px-2 py-1 transition-colors hover:bg-black/5 dark:hover:bg-white/5 ${connection.providerSpecificData?.monitorOnly ? "text-primary" : "text-text-muted hover:text-primary"}`}
+            title={connection.providerSpecificData?.monitorOnly
+              ? "Monitor-only: quota is read, but no traffic is routed here. Click to allow routing."
+              : "Routing enabled. Click to make this account monitor-only (quota still read)."}
+          >
+            <span className="material-symbols-outlined text-[18px]">
+              {connection.providerSpecificData?.monitorOnly ? "visibility" : "swap_horiz"}
+            </span>
+            <span className="text-[10px] leading-tight">
+              {connection.providerSpecificData?.monitorOnly ? "Monitor" : "Routed"}
+            </span>
+          </button>
+        ) : null}
         <Toggle
           size="sm"
           checked={connection.isActive ?? true}

@@ -19,6 +19,7 @@ import StatusAlert from "./components/StatusAlert";
 import Tooltip from "./components/Tooltip";
 import SecurityWarning from "./components/SecurityWarning";
 import KeyAccessControls from "./components/KeyAccessControls";
+import KeyPinControl from "./components/KeyPinControl";
 export default function APIPageClient({ machineId }) {
   const [keys, setKeys] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -694,6 +695,24 @@ export default function APIPageClient({ machineId }) {
     }
   };
 
+  const handleUpdateKeyPin = async (id, pinnedConnectionId) => {
+    try {
+      const res = await fetch(`/api/keys/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pinnedConnectionId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.key) {
+        setKeys(prev => prev.map(k => k.id === id ? { ...k, pinnedConnectionId: data.key.pinnedConnectionId } : k));
+      } else {
+        console.log("Error updating key pin:", data.error || res.status);
+      }
+    } catch (error) {
+      console.log("Error updating key pin:", error);
+    }
+  };
+
   const maskKey = (fullKey) => {
     if (!fullKey || fullKey.length <= 10) return fullKey || "";
     return fullKey.slice(0, 6) + "•".repeat(fullKey.length - 10) + fullKey.slice(-4);
@@ -1056,6 +1075,10 @@ export default function APIPageClient({ machineId }) {
                   {key.isActive === false && (
                     <p className="text-xs text-orange-500 mt-1">Paused</p>
                   )}
+                  <KeyPinControl
+                    apiKey={key}
+                    onChange={(pin) => handleUpdateKeyPin(key.id, pin)}
+                  />
                   <KeyAccessControls
                     apiKey={key}
                     onChange={(access) => handleUpdateKeyAccess(key.id, access)}
