@@ -44,6 +44,18 @@ const DEFAULT_SETTINGS = {
   observabilityBatchSize: 20,
   observabilityFlushIntervalMs: 5000,
   observabilityMaxJsonSize: 5,
+  // Claude account monitoring (ships disabled — see src/lib/monitoring/).
+  // monitorSmtpPass is in PROTECTED_SETTING_KEYS and stripped from GET.
+  monitorEnabled: false,
+  monitorSmtpHost: "",
+  monitorSmtpPort: 587,
+  monitorSmtpSecure: false,
+  monitorSmtpUser: "",
+  monitorSmtpPass: "",
+  monitorMailFrom: "",
+  monitorMailTo: "",
+  monitorReportHour: 7,
+  monitorTz: "Asia/Jakarta",
   outboundProxyEnabled: false,
   outboundProxyUrl: "",
   outboundNoProxy: "",
