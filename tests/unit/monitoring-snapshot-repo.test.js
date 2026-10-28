@@ -1,11 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, beforeAll, afterAll } from "vitest";
 import {
   insertSnapshot, getLatestPerConnection, getSnapshotsForDate, getSnapshotRange,
 } from "../../src/lib/db/repos/quotaSnapshotsRepo.js";
+import { getAdapter } from "../../src/lib/db/driver.js";
 
 const CONN = "test-conn-0001";
 
+// Runs against the real dev DB: start from a known state and leave none behind,
+// or the row counts these tests assert drift with every re-run.
+async function wipe() {
+  const db = await getAdapter();
+  db.run(`DELETE FROM quotaSnapshots WHERE connectionId IN (?, ?)`, [CONN, CONN + "-fail"]);
+}
+
 describe("quotaSnapshotsRepo", () => {
+  beforeAll(wipe);
+  afterAll(wipe);
   it("round-trips a snapshot with its JSON columns parsed back", async () => {
     const quotas = { "session (5h)": { used: 8, total: 100, remaining: 92 } };
     await insertSnapshot({

@@ -86,6 +86,17 @@ export async function getSnapshotsForDate(dateKey) {
 }
 
 /**
+ * Deletes rows strictly older than `dateKey` — the boundary day itself is
+ * kept, so a 90-day retention really retains 90 days.
+ * @returns {Promise<number>} rows deleted
+ */
+export async function pruneSnapshotsOlderThan(dateKey) {
+  const db = await getAdapter();
+  const res = db.run(`DELETE FROM quotaSnapshots WHERE dateKey < ?`, [dateKey]);
+  return res?.changes ?? 0;
+}
+
+/**
  * Inclusive on both bounds.
  * @returns {Promise<Array<object>>}
  */
