@@ -7,6 +7,7 @@ import "material-symbols/outlined.css";
 // fails to parse them.
 import "@/vendor/dakara/tokens.css";
 import "@/vendor/dakara/colors_and_type.css";
+import "@/vendor/dakara/fonts/phosphor.css";
 import "@/vendor/dakara/components.css";
 import "./globals.css";
 import { ThemeProvider } from "@/shared/components/ThemeProvider";
@@ -34,7 +35,7 @@ const firaCode = Fira_Code({ subsets: ["latin"], weight: ["400", "500"], variabl
 const dsFontVars = [spaceGrotesk, outfit, manrope, firaCode].map((f) => f.variable).join(" ");
 
 export const metadata = {
-  title: "DakaraRouter",
+  title: "Dakara Router",
   description: "Centralized Claude account monitoring — per-account quota, usage and reporting.",
   icons: {
     icon: "/favicon.svg",

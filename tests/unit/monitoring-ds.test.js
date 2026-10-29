@@ -139,3 +139,26 @@ describe("Dakara sheets sit below Tailwind's utilities", () => {
     expect(read("../src/app/globals.css")).toMatch(/p \{ max-width: none; \}/);
   });
 });
+
+describe("no retired brand colour survives", () => {
+  it("has no coral/orange literals left in globals.css", () => {
+    // #E56A4A / rgb(229,106,74) was the pre-Dakara brand. ::selection and the
+    // scrollbars still used it, clashing with azure — and ::selection was the
+    // visible one: both it and the DS rule were unlayered, so source order
+    // decided and the orange won.
+    const g = read("../src/app/globals.css");
+    expect(g).not.toMatch(/229,\s*106,\s*74/);
+    expect(g).not.toMatch(/#E56A4A/i);
+    expect(g).not.toMatch(/#D97757/i);
+  });
+
+  it("does not ship a stale palette that claims to drive the theme", () => {
+    // constants/colors.js exported the old coral values under --color-* names
+    // with zero importers. Applying it would have silently undone the
+    // migration, and its name invites exactly that.
+    const fs = require("node:fs");
+    const path = "../src/shared/constants/colors.js";
+    if (!fs.existsSync(path)) return;              // deleted outright is fine
+    expect(fs.readFileSync(path, "utf8")).not.toMatch(/#D97757|#E56A4A/i);
+  });
+});

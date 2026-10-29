@@ -250,14 +250,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Selection - brand-tinted */
+/* Selection — the DS tint. Both this and the DS's own ::selection rule were
+   unlayered, so source order decided and the retired coral won. */
 ::selection {
-  background-color: rgba(229, 106, 74, 0.25);
-  color: var(--color-primary);
-}
-.dark ::selection {
-  background-color: rgba(229, 106, 74, 0.3);
-  color: var(--color-brand-300);
+  background-color: var(--select);
+  color: var(--ink);
 }
 
 /* iOS keyboard accent */
@@ -280,22 +277,16 @@ input, textarea {
   background-color: var(--color-primary);
 }
 
-/* Thin horizontal scrollbar - brand colored */
+/* Thin horizontal scrollbar — accent coloured, one rule per theme. */
 .scroll-thin-x {
   scrollbar-width: thin;
-  scrollbar-color: rgba(229, 106, 74, 0.55) transparent;
-}
-.dark .scroll-thin-x {
-  scrollbar-color: rgba(229, 106, 74, 0.55) transparent;
+  scrollbar-color: color-mix(in srgb, var(--primary) 55%, transparent) transparent;
 }
 .scroll-thin-x::-webkit-scrollbar { height: 3px; }
 .scroll-thin-x::-webkit-scrollbar-track { background: transparent; }
 .scroll-thin-x::-webkit-scrollbar-thumb {
-  background: rgba(229, 106, 74, 0.55);
+  background: color-mix(in srgb, var(--primary) 55%, transparent);
   border-radius: 3px;
-}
-.dark .scroll-thin-x::-webkit-scrollbar-thumb {
-  background: rgba(229, 106, 74, 0.55);
 }
 
 /* Global thin mac-like scrollbars (overrides clunky Windows/Linux default) */
@@ -330,21 +321,8 @@ input, textarea {
 }
 
 /* Reusable elevated card */
-.card-soft {
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-soft);
-  border-radius: var(--radius-brand-lg);
-}
-.card-elev {
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-elev);
-  border-radius: var(--radius-brand-lg);
-}
 
 /* Hero gradient (compat) */
-.bg-hero-gradient {
-  background: linear-gradient(180deg, var(--color-bg-alt) 0%, var(--color-bg) 100%);
-}
 
 /* macOS Vibrancy. The tint is declared per theme rather than color-mix'd from
    --sb-surface: a var() inside color-mix resolves against the element the rule
@@ -432,17 +410,6 @@ button:disabled,
 }
 .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 
-@keyframes border-glow {
-  0%, 100% {
-    box-shadow: 0 0 5px rgba(229, 106, 74, 0.3), 0 0 10px rgba(229, 106, 74, 0.2);
-    border-color: rgba(229, 106, 74, 0.5);
-  }
-  50% {
-    box-shadow: 0 0 10px rgba(229, 106, 74, 0.5), 0 0 20px rgba(229, 106, 74, 0.3);
-    border-color: rgba(229, 106, 74, 0.8);
-  }
-}
-.animate-border-glow { animation: border-glow 2s ease-in-out infinite; }
 
 @keyframes slideInFromRight {
   from { transform: translateX(100%); opacity: 0; }
@@ -464,22 +431,11 @@ button:disabled,
   0%, 100% { opacity: 0.4; transform: scale(1); }
   50% { opacity: 0.7; transform: scale(1.05); }
 }
-.animate-pulse-glow { animation: pulseGlow 3s ease-in-out infinite; }
 
 /* CTA shimmer + glow pulse */
 @keyframes ctaShimmer {
   0% { transform: translateX(-120%) skewX(-20deg); }
   100% { transform: translateX(220%) skewX(-20deg); }
-}
-@keyframes ctaGlowPulse {
-  0%, 100% { box-shadow: 0 8px 24px -8px rgba(229, 106, 74, 0.45), 0 0 0 0 rgba(229, 106, 74, 0.5); }
-  50% { box-shadow: 0 12px 32px -8px rgba(229, 106, 74, 0.6), 0 0 0 8px rgba(229, 106, 74, 0); }
-}
-.btn-cta {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  animation: ctaGlowPulse 2.4s ease-in-out infinite;
 }
 .btn-cta::before {
   content: "";
@@ -496,18 +452,7 @@ button:disabled,
 .btn-cta > * { position: relative; z-index: 2; }
 
 /* Dot Grid Background Pattern */
-.dot-grid-bg {
-  background-color: var(--color-bg);
-  background-image:
-    radial-gradient(circle at 15% 20%, rgba(229, 106, 74, 0.10) 0%, transparent 40%),
-    radial-gradient(circle at 85% 80%, rgba(229, 106, 74, 0.06) 0%, transparent 40%);
-}
-.dark .dot-grid-bg {
-  background-image:
-    radial-gradient(circle at 15% 20%, rgba(229, 106, 74, 0.18) 0%, transparent 40%),
-    radial-gradient(circle at 85% 80%, rgba(229, 106, 74, 0.10) 0%, transparent 40%);
-}
-
+.dark 
 /* Landing-style faint grid overlay (use absolute pos inside relative parent) */
 .landing-grid {
   background-image:
