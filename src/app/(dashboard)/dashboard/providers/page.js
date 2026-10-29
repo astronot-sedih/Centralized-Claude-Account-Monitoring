@@ -101,7 +101,7 @@ const APIKEY_INITIAL_VISIBLE = 20;
 
 export default function ProvidersPage() {
   const [connections, setConnections] = useState([]);
-  const { activeProfileId, load: loadProfiles, loaded: profilesLoaded } = useProfileStore();
+  const { activeProfileId, assignments } = useProfileStore();
   const [providerNodes, setProviderNodes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAllApikey, setShowAllApikey] = useState(false);
@@ -178,9 +178,12 @@ export default function ProvidersPage() {
     const authTypes = Array.isArray(authType) ? authType : [authType];
     // Scoped to the active workspace. Unassigned connections stay visible in
     // every profile — hiding them would make existing setup look deleted.
+    // The assignment map is the authority: /api/providers may omit
+    // providerSpecificData for some providers, and a card that silently stops
+    // counting a claimed account reads as a lost connection.
     const inWorkspace = scopeToProfile(
       connections,
-      (c) => c?.providerSpecificData?.profileId || null,
+      (c) => assignments?.[c.id] || c?.providerSpecificData?.profileId || null,
       activeProfileId
     );
     const providerConnections = inWorkspace.filter(
