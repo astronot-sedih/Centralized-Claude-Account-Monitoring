@@ -43,9 +43,14 @@ function applyTheme(theme) {
 
   const effectiveTheme = theme === "system" ? systemTheme : theme;
 
+  // Dakara is dark-first: the dark palette lives on :root, so LIGHT is the
+  // class that overrides. `dark` is still applied for Tailwind's dark: variant
+  // and for components that branch on it.
   if (effectiveTheme === "dark") {
     root.classList.add("dark");
+    root.classList.remove("light");
   } else {
+    root.classList.add("light");
     root.classList.remove("dark");
   }
 }

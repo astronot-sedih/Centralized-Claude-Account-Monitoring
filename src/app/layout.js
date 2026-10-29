@@ -1,4 +1,4 @@
-import { Inter } from "next/font/google";
+import { Inter, Space_Grotesk, Outfit, Manrope, Fira_Code } from "next/font/google";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import "material-symbols/outlined.css";
 import "./globals.css";
@@ -16,6 +16,16 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
+// Dakara DS type families. Loaded through next/font rather than an @import in
+// globals.css: Turbopack rejects a plain @import url() after @import
+// "tailwindcss", and next/font self-hosts them (no render-blocking fetch).
+const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-ds-display" });
+const outfit = Outfit({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-ds-heading" });
+const manrope = Manrope({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-ds-body" });
+const firaCode = Fira_Code({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-ds-mono" });
+
+const dsFontVars = [spaceGrotesk, outfit, manrope, firaCode].map((f) => f.variable).join(" ");
+
 export const metadata = {
   title: "CCAM Router (Only For Claude)",
   description: "Centralized Claude account monitoring — per-account quota, usage and reporting.",
@@ -25,7 +35,7 @@ export const metadata = {
 };
 
 export const viewport = {
-  themeColor: "#0a0a0a",
+  themeColor: "#080909",
 };
 
 export default function RootLayout({ children }) {
@@ -37,7 +47,7 @@ export default function RootLayout({ children }) {
             zustand-persist "theme" key and the `dark` class applyTheme() sets. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var s=localStorage.getItem('theme');var t=s?(JSON.parse(s).state||{}).theme:'system';t=t||'system';var m=window.matchMedia('(prefers-color-scheme: dark)').matches;if(t==='dark'||(t==='system'&&m)){document.documentElement.classList.add('dark')}}catch(e){}})();`,
+            __html: `(function(){try{var r=document.documentElement;var s=localStorage.getItem('theme');var t=s?(JSON.parse(s).state||{}).theme:'dark';t=t||'dark';var m=window.matchMedia('(prefers-color-scheme: dark)').matches;var dark=(t==='dark')||(t==='system'&&m);if(dark){r.classList.add('dark')}else{r.classList.add('light')}}catch(e){r.classList.add('dark')}})();`,
           }}
         />
         <script
@@ -46,7 +56,7 @@ export default function RootLayout({ children }) {
           }}
         />
       </head>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} ${dsFontVars} font-sans antialiased`}>
         <ThemeProvider>
           <RuntimeI18nProvider>
             {children}

@@ -38,7 +38,8 @@ export const UPDATER_CONFIG = {
 // Theme configuration
 export const THEME_CONFIG = {
   storageKey: "theme",
-  defaultTheme: "system", // "light" | "dark" | "system"
+  // Dakara DS is dark-first (SKILL.md: `data-theme="dark"` default).
+  defaultTheme: "dark", // "light" | "dark" | "system"
 };
 
 // Subscription
