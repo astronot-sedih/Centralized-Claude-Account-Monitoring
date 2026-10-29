@@ -135,3 +135,44 @@ describe("sendReportMail — the failure reason has to be actionable", () => {
     expect(JSON.stringify(r)).not.toContain("sup3rs3cret");
   });
 });
+
+describe("recipients can be set from the dashboard", () => {
+  it("prefers the stored recipients over the env value", async () => {
+    const { resolveMonitorConfig } = await import("../../src/lib/monitoring/mailer.js");
+    const c = await resolveMonitorConfig(
+      { MONITOR_MAIL_TO: "env@t.io" },
+      async () => ({ monitorMailTo: "ui-a@t.io, ui-b@t.io" })
+    );
+    expect(c.to).toEqual(["ui-a@t.io", "ui-b@t.io"]);
+  });
+
+  it("falls back to env when nothing is stored", async () => {
+    const { resolveMonitorConfig } = await import("../../src/lib/monitoring/mailer.js");
+    const c = await resolveMonitorConfig(
+      { MONITOR_MAIL_TO: "env@t.io" },
+      async () => ({ monitorMailTo: "" })
+    );
+    expect(c.to).toEqual(["env@t.io"]);
+  });
+
+  it("survives a settings read that throws", async () => {
+    // A monitoring config read must never take the scheduler down.
+    const { resolveMonitorConfig } = await import("../../src/lib/monitoring/mailer.js");
+    const c = await resolveMonitorConfig(
+      { MONITOR_MAIL_TO: "env@t.io" },
+      async () => { throw new Error("db locked"); }
+    );
+    expect(c.to).toEqual(["env@t.io"]);
+  });
+
+  it("ignores entries that are not email-shaped", async () => {
+    // The list reaches an SMTP envelope; junk in it is a send failure for
+    // everyone, not just the bad entry.
+    const { resolveMonitorConfig } = await import("../../src/lib/monitoring/mailer.js");
+    const c = await resolveMonitorConfig(
+      {},
+      async () => ({ monitorMailTo: "ok@t.io, not-an-email, , also@t.io" })
+    );
+    expect(c.to).toEqual(["ok@t.io", "also@t.io"]);
+  });
+});

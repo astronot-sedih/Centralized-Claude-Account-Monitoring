@@ -88,7 +88,11 @@ export async function buildMonitorTickDeps(config, services) {
       setLastPrunedDateKey: (dateKey) => setMeta(LAST_PRUNED_KEY, dateKey),
       sendReport: async ({ dateKey, timeZone }) => {
         const report = await assembleReport(dateKey, timeZone);
-        const result = await sendReportMail(report, config);
+        // Re-resolved per send so a recipient change in the dashboard takes
+        // effect on the next report, with no restart.
+        const { resolveMonitorConfig } = await import("./mailer.js");
+        const live = await resolveMonitorConfig();
+        const result = await sendReportMail(report, { ...config, to: live.to });
         // Throw on failure so the scheduler does NOT mark the day sent — one
         // SMTP outage must not cost that day's report permanently.
         if (!result?.sent) throw new Error(result?.reason || "send failed");

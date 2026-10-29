@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import ReportTable from "@/components/monitoring/ReportTable";
 import CoverageBanner from "@/components/monitoring/CoverageBanner";
+import RecipientsCard from "@/components/monitoring/RecipientsCard";
 import { SEV_CSS_VARS } from "@/lib/monitoring/tokens";
 import { summaryTiles } from "@/lib/monitoring/view";
 
@@ -94,6 +95,8 @@ export default function MonitoringPage() {
       </div>
 
       <CoverageBanner coverage={report.coverage} />
+
+      <RecipientsCard />
 
       {error ? <p className="text-xs" style={{ color: SEV_CSS_VARS.critical.text }}>{error}</p> : null}
 

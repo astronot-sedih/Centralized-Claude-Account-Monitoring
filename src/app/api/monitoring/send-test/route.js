@@ -8,7 +8,7 @@
 
 import { NextResponse } from "next/server";
 import { assembleReport } from "@/lib/monitoring/tickDeps.js";
-import { monitorSettingsFromEnv, sendReportMail } from "@/lib/monitoring/mailer.js";
+import { resolveMonitorConfig, sendReportMail } from "@/lib/monitoring/mailer.js";
 import { dateKeyFor } from "@/lib/monitoring/clock.js";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +30,8 @@ export async function POST() {
     );
   }
   try {
-    const config = monitorSettingsFromEnv();
+    // Live config: SMTP from env, recipients from dashboard settings.
+    const config = await resolveMonitorConfig();
     const dateKey = dateKeyFor(new Date(), config.timeZone);
     const report = await assembleReport(dateKey, config.timeZone);
     // sendReportMail already scrubs its reason; it never returns credentials.

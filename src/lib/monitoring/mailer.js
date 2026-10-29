@@ -23,15 +23,55 @@ export function monitorSettingsFromEnv(env = process.env) {
     user: env.MONITOR_SMTP_USER || "",
     pass: env.MONITOR_SMTP_PASS || "",
     from: env.MONITOR_MAIL_FROM || "",
-    to: (env.MONITOR_MAIL_TO || "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean),
+    to: parseRecipients(env.MONITOR_MAIL_TO),
     reportHour: Number.isFinite(Number(env.MONITOR_REPORT_HOUR))
       ? Number(env.MONITOR_REPORT_HOUR)
       : 7,
     timeZone: env.MONITOR_TZ || DEFAULT_TZ,
   };
+}
+
+/**
+ * Splits a recipient list and drops anything that is not email-shaped.
+ *
+ * The result goes straight into an SMTP envelope, where one junk entry fails
+ * the send for EVERYONE on the list — so a typo must cost its own line, not
+ * the whole report.
+ */
+export function parseRecipients(value) {
+  return String(value || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s));
+}
+
+/**
+ * The live monitoring config: env for the SMTP connection, dashboard settings
+ * for the recipient list.
+ *
+ * Recipients move to settings because they change — people join, someone's
+ * manager wants a copy — and editing a file on the host plus a restart is the
+ * wrong shape for that. The SMTP host and password stay in env: those are
+ * deployment secrets, and monitorSmtpPass is deliberately unreadable through
+ * the settings API.
+ *
+ * @param {object} env
+ * @param {Function} readSettings injectable; defaults to the real store
+ * @returns {Promise<object>} config for sendReportMail and the scheduler
+ */
+export async function resolveMonitorConfig(env = process.env, readSettings) {
+  const base = monitorSettingsFromEnv(env);
+  try {
+    const read = readSettings || (await import("@/lib/localDb")).getSettings;
+    const settings = await read();
+    const stored = parseRecipients(settings?.monitorMailTo);
+    // Stored wins when set; env remains the fallback so an existing
+    // deployment keeps working with no settings row at all.
+    if (stored.length) return { ...base, to: stored };
+  } catch {
+    // A settings read must never take the scheduler down.
+  }
+  return base;
 }
 
 // An operator-chosen password is arbitrary text, so the pattern-based scrubber
