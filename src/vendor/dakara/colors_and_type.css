@@ -1,0 +1,259 @@
+/* VENDORED from dakara-ds/colors_and_type.css.
+   Two upstream @import lines removed:
+     - the Google Fonts URL — the families load via next/font in layout.js
+       (self-hosted, no render-blocking fetch, and Turbopack rejects
+       @import url() here);
+     - @import "tokens.css" — layout.js imports tokens.css before this file.
+   Nothing else is changed except the theme-selector bridge (.dark/.light
+   alongside [data-theme]). */
+/* Dakara DS v2.0 — colors_and_type.css
+   token values live in tokens.json / tokens.css; this layer holds what tokens cannot hold: color-mix status tints, semantic alias layer, sidebar palette mapping,
+      preferences (data-font-size / data-contrast / data-motion), type scale × --fs-scale, motion, base elements. */
+
+
+/* ============================================================
+   Dakara Daksa Dira Design System — v2.0
+   Source of truth: tokens.json (nilai Dakara v1.3) · README.md (aturan)
+
+   Tema:  :root / [data-theme="dark"]  → Gelap (default, dark-first)
+          [data-theme="light"]          → Terang
+   Prinsip warna:
+     • Satu aksen sky/azure (--primary #1aa7de) untuk setiap momen interaktif.
+       Teks di atas isi aksen = --on-primary (#04202b), tidak pernah putih.
+       Aksen sebagai teks/ikon = --accent-text (Blue 400 gelap / Blue 800 terang).
+     • Permukaan dibedakan oleh garis 1px translusen (--line-soft 10%), bukan isi terang.
+     • --select / --select-line = aksen 12% / 50% untuk seleksi.
+     • Merah/oranye/kuning/hijau HANYA untuk status/severity (--sev-*, --tone-*).
+     • Visualisasi kategorikal hanya Blue/Violet/Teal/Navy (--viz-*), sekuensial Blue (--seq-*).
+   Preferensi pengguna (di <html>): data-theme · data-font-size · data-contrast · data-motion · lang
+   ============================================================ */
+
+
+:root, [data-theme="dark"] {
+  --warn-soft:var(--sev-medium-soft); --warn-line:var(--sev-medium-line);
+  --bad-soft:var(--sev-critical-soft); --bad-line:var(--sev-critical-line);
+  /* Visualisasi — kategorikal lembut (tanpa merah/oranye/kuning/hijau) */
+  /* Visualisasi — sekuensial (densitas/heatmap), satu arah */
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --warn-soft:var(--sev-medium-soft); --warn-line:var(--sev-medium-line);
+  --bad-soft:var(--sev-critical-soft); --bad-line:var(--sev-critical-line);
+  color-scheme: light;
+}
+
+/* Palet sidebar — nilai per tema di --sb-*, dipetakan di dalam sidebar */
+nav.om-scroll, .ds-sidebar {
+  --surface:var(--sb-surface); --surface-2:var(--sb-surface-2); --line-soft:var(--sb-line-soft); --line-2:var(--sb-line-2);
+  --ink:var(--sb-ink); --ink-2:var(--sb-ink-2); --muted:var(--sb-muted); --faint:var(--sb-faint); --faint-2:var(--sb-faint-2);
+  --primary:var(--sb-primary); --select:var(--sb-select); --select-line:var(--sb-select-line);
+}
+
+/* ============================================================
+   STATUS & SEVERITY — satu warna solid, sama di tema gelap & terang.
+   soft/line diturunkan via color-mix sehingga bekerja di latar apa pun.
+   Teks di atas solid: --sev-*-on. Teks di atas soft: --ink (+ dot berwarna).
+   ============================================================ */
+:root, [data-theme], .dark, .light {
+  --sev-critical-soft:color-mix(in srgb, var(--sev-critical) 14%, transparent); --sev-critical-line:color-mix(in srgb, var(--sev-critical) 50%, transparent);
+  --sev-high-soft:color-mix(in srgb, var(--sev-high) 14%, transparent);         --sev-high-line:color-mix(in srgb, var(--sev-high) 50%, transparent);
+  --sev-medium-soft:color-mix(in srgb, var(--sev-medium) 16%, transparent);     --sev-medium-line:color-mix(in srgb, var(--sev-medium) 55%, transparent);
+  --sev-low-soft:color-mix(in srgb, var(--sev-low) 14%, transparent);           --sev-low-line:color-mix(in srgb, var(--sev-low) 50%, transparent);
+  /* Teks status: warna status dicampur ink → lebih terang di gelap, lebih gelap di terang (kontras ≥ 4.5) */
+  --sev-critical-text:color-mix(in srgb, var(--sev-critical) 80%, var(--ink)); --sev-high-text:color-mix(in srgb, var(--sev-high) 58%, var(--ink));
+  --sev-medium-text:color-mix(in srgb, var(--sev-medium) 45%, var(--ink)); --sev-low-text:color-mix(in srgb, var(--sev-low) 65%, var(--ink)); --sev-info-text:color-mix(in srgb, var(--sev-info) 70%, var(--ink));
+  --sev-info-soft:color-mix(in srgb, var(--sev-info) 14%, transparent);         --sev-info-line:color-mix(in srgb, var(--sev-info) 45%, transparent);
+}
+
+/* ============================================================
+   PREFERENSI PENGGUNA (aksesibilitas) — pasang di <html>
+   ============================================================ */
+:root { --fs-scale:1; /* @kind other */ }
+[data-font-size="sm"] { --fs-scale:0.923; /* @kind other */ }  /* body 12 */
+[data-font-size="lg"] { --fs-scale:1.154; /* @kind other */ }  /* body 15 */
+[data-font-size="xl"] { --fs-scale:1.308; /* @kind other */ }  /* body 17 */
+[data-contrast="high"] { --line-soft:var(--faint-2); --line-2:var(--line); --muted:var(--ink-2); --faint:var(--muted); --focus:var(--ink); }
+[data-theme="light"][data-contrast="high"] { --line-soft:#a1a1aa; --line-2:#d4d4d8; --muted:#27272a; --faint:#3f3f46; --line-interactive:#52525b; }
+[data-theme="dark"][data-contrast="high"], :root[data-contrast="high"]:not([data-theme="light"]) { --line-soft:#52525b; --line-2:#3f3f46; --muted:#e4e4e7; --faint:#d4d4d8; --line-interactive:#a1a1aa; }
+[data-motion="reduce"] *, [data-motion="reduce"] *::before, [data-motion="reduce"] *::after { transition-duration:0ms !important; animation-duration:0ms !important; }
+
+/* ============================================================
+   LAYER 2 — semantic aliases + scale tokens.
+   Declared on every theme scope so nested [data-theme] re-resolves.
+   ============================================================ */
+:root, [data-theme], [data-contrast], nav.om-scroll, .ds-sidebar {
+  /* Text & icon */
+  --fg-primary:var(--ink); --fg-secondary:var(--ink-2); --fg-tertiary:var(--muted);
+  --fg-faint:var(--faint); --fg-disabled:var(--disabled);
+  --fg-inverse:var(--surface); --fg-inverse-accent:var(--on-primary); /* Borders */
+  --border-subtle:var(--line-2); --border-default:var(--line-soft); --border-strong:var(--line); --border-focus:var(--select-line);
+  /* Backgrounds */
+  --bg-canvas:var(--bg); --bg-surface:var(--surface); --bg-elevated:var(--elevated); --bg-sidebar:var(--sb-surface);
+  --bg-floating:var(--elevated); --bg-panel:var(--surface-2); --bg-input:var(--surface); --bg-hover:var(--surface-2);
+  --bg-active:var(--ink); --bg-toast:var(--ink);
+  /* Primary & selection */
+  --accent:var(--primary); --accent-hover:var(--primary-hover); --accent-active:var(--primary-active); --accent-soft-12:var(--select); --accent-soft-20:var(--accent-ring);
+  --select-04:color-mix(in srgb, var(--primary) 4%, transparent);
+  --select-08:color-mix(in srgb, var(--primary) 8%, transparent);
+  --select-12:var(--select); --select-32:var(--select-line);
+  --focus-ring:var(--accent-ring);
+  --pop:var(--shadow-menu);
+  /* Status — Dakara semantic (Green / Yellow / Red / Navy) */
+  --success:var(--ok); --success-hover:var(--ok); --success-active:var(--ok);
+  --success-text:var(--tone-positive-text); --success-soft:var(--ok-soft); --success-border:var(--ok-line);
+  --success-soft-04:var(--ok-soft); --success-soft-08:var(--ok-soft); --success-soft-20:var(--ok-soft); --success-soft-32:var(--ok-line);
+  --warning:var(--warn); --warning-hover:var(--warn); --warning-active:var(--warn);
+  --warning-text:var(--tone-warning-text); --warning-soft:var(--warn-soft); --warning-border:var(--warn-line);
+  --warning-soft-04:var(--warn-soft); --warning-soft-08:var(--warn-soft); --warning-soft-20:var(--warn-soft); --warning-soft-32:var(--warn-line);
+  --danger:var(--bad); --danger-hover:var(--bad); --danger-active:var(--bad);
+  --danger-text:var(--tone-negative-text); --danger-soft:var(--bad-soft); --danger-border:var(--bad-line);
+  --danger-soft-04:var(--bad-soft); --danger-soft-08:var(--bad-soft); --danger-soft-20:var(--bad-soft); --danger-soft-32:var(--bad-line);
+  --info:var(--sev-info); --info-hover:var(--navy-400); --info-active:var(--navy-700);
+  --info-text:var(--tone-protect-text); --info-soft:var(--tone-protect-soft); --info-border:color-mix(in srgb, var(--sev-info) 32%, transparent);
+  --info-soft-04:color-mix(in srgb, var(--sev-info) 4%, transparent); --info-soft-08:color-mix(in srgb, var(--sev-info) 8%, transparent); --info-soft-20:color-mix(in srgb, var(--sev-info) 20%, transparent); --info-soft-32:color-mix(in srgb, var(--sev-info) 32%, transparent);
+  --violet:var(--violet-500); --teal:var(--teal-500);
+  /* Severity aliases */
+  --critical:var(--sev-critical); --high:var(--sev-high); --medium:var(--sev-medium); --low:var(--sev-low);
+  /* Categorical (data viz) */
+  --cat-1:var(--c1); --cat-2:var(--c2); --cat-3:var(--c3); --cat-4:var(--c4); --cat-5:var(--c5); --cat-6:var(--c6);
+  /* Neutral ramp — Dakara Zinc (tetap, tidak berubah per tema) */
+  --neutral-50:var(--zinc-50); --neutral-100:var(--zinc-100); --neutral-200:var(--zinc-200); --neutral-300:var(--zinc-300);
+  --neutral-400:var(--zinc-400); --neutral-500:var(--zinc-500); --neutral-600:var(--zinc-600); --neutral-700:var(--zinc-700);
+  --neutral-800:var(--zinc-800); --neutral-900:var(--zinc-900); --neutral-950:var(--zinc-950);
+  /* Elevation — shadow only on floating layers */
+  --shadow-xs:none; --shadow-sm:var(--shadow-menu); --shadow-md:var(--shadow-menu); --shadow-lg:var(--shadow-strong); --shadow-floating:var(--shadow-menu);
+  --shadow-focus:0 0 0 4px var(--accent-ring); --shadow-accent-glow:var(--shadow-focus); --shadow-focus-glow:var(--shadow-focus);
+  --blur-floating:0px;
+}
+
+:root {
+  /* ============================================================
+     TYPOGRAPHY — Space Grotesk (display/KPI) · Outfit (heading) · Manrope (UI) · Fira Code (label/data)
+     ============================================================ */
+  
+  
+  
+
+  --type-4xs:calc(10px * var(--fs-scale));    /* nav group (Fira Code 10) */
+  --type-3xs:calc(10px * var(--fs-scale));    /* eyebrow, status pill (Fira Code Xsmall) */
+  --type-2xs:calc(10px * var(--fs-scale));    /* table header */
+  --type-label:calc(10.5px * var(--fs-scale));/* form label */
+  --type-xs:calc(11px * var(--fs-scale));     /* meta */
+  --type-meta:calc(12px * var(--fs-scale));   /* helper, card footer (Body/Small) */
+  --type-sm:calc(12px * var(--fs-scale));     /* menu, button sm (Dakara sm) */
+  --type-base:calc(13px * var(--fs-scale));   /* body */
+  --type-md:calc(14px * var(--fs-scale));     /* body workhorse (Body/Medium) */
+  --type-btn:calc(13px * var(--fs-scale));    /* button md (Dakara) */
+  --type-lg:calc(15px * var(--fs-scale));     /* long-form */
+  --type-card:calc(15px * var(--fs-scale));   /* card title */
+  --type-xl:calc(16px * var(--fs-scale));     /* section H3 */
+  --type-2xl:calc(18px * var(--fs-scale));    /* modal title */
+  --type-3xl:calc(22px * var(--fs-scale));    /* page H1 */
+  --type-kpi:calc(28px * var(--fs-scale));
+  --type-4xl:calc(28px * var(--fs-scale));    /* hero login */
+  --type-5xl:calc(36px * var(--fs-scale));    /* report title */
+  --type-display:calc(48px * var(--fs-scale));
+  --type-h3:var(--type-xl); --type-h2:var(--type-2xl); --type-h1:var(--type-3xl); --type-hero:var(--type-4xl);
+  --text-2xs:var(--type-2xs); --text-xs:var(--type-xs); --text-sm:var(--type-sm); --text-base:var(--type-base);
+  --text-md:var(--type-md); --text-lg:var(--type-lg); --text-xl:var(--type-xl); --text-2xl:var(--type-2xl);
+  --text-3xl:var(--type-3xl); --text-4xl:var(--type-4xl); --text-5xl:var(--type-5xl); --text-6xl:var(--type-display); --text-display:var(--type-display);
+
+  
+
+  /* SPACING — 2·4·6·8·10·12·14·18·20·24·32·56 */
+  
+  
+
+  /* RADII */
+  /* Tangga radius: 4 · 6 · 8 · 10 · 12 · 16 · pill — tidak ada nilai lain */
+  /* kbd, cite, skeleton baris */
+  /* tag, tooltip, chip metadata */
+  
+  /* kontrol 28–32, item menu/segmen/opsi */
+  /* kontrol 36, nav item */
+  /* kontrol 44–52, input */
+  /* menu, dropdown, alert, toast */
+  /* popover */
+  /* card item di dalam card */
+  /* card, panel, modal */
+  
+  /* alias lama — dipetakan ke tangga */
+
+  /* GARIS & FOKUS — semua outline/border 1px */
+  
+
+  /* IKON — hanya 12 · 14 · 16 · 20 · 24 */
+
+  /* PADDING KOMPONEN (grid 4) */
+  
+  
+
+  /* CONTROL HEIGHTS */
+  
+
+  /* LAYOUT */
+  
+  
+
+  /* Z-INDEX */
+  
+  
+
+  /* MOTION */
+  --ease-out:cubic-bezier(0.16, 1, 0.3, 1); /* @kind other — Dakara ease-out expo */
+  --ease-in-out:cubic-bezier(0.65, 0, 0.35, 1); /* @kind other */
+  --duration-fast:120ms; /* @kind other */
+  --duration-sidebar:160ms; /* @kind other */
+  --duration-normal:180ms; /* @kind other */
+  --duration-slow:280ms; /* @kind other */
+  --t-color:120ms cubic-bezier(0.16, 1, 0.3, 1); /* @kind other */
+  --t-sidebar:160ms ease; /* @kind other */
+  --t-drawer:180ms cubic-bezier(0.16, 1, 0.3, 1); /* @kind other */
+}
+
+/* ============================================================
+   SEMANTIC ELEMENT DEFAULTS
+   ============================================================ */
+html, body {
+  background:var(--bg); color:var(--ink);
+  font-family:var(--font-body); font-size:var(--type-base); line-height:var(--leading-normal);
+  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+  transition:background-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+}
+h1, .h1 { font-family:var(--font-heading); font-weight:600; font-size:var(--type-h1); line-height:1.2; letter-spacing:var(--tracking-tight); color:var(--ink); }
+.hero { font-family:var(--font-display); font-weight:700; font-size:var(--type-hero); line-height:1.15; letter-spacing:var(--tracking-hero); color:var(--ink); }
+.report-title { font-family:var(--font-display); font-weight:700; font-size:var(--type-5xl); line-height:1.15; letter-spacing:var(--tracking-display); color:var(--ink); }
+h2, .h2 { font-family:var(--font-heading); font-weight:600; font-size:var(--type-h2); line-height:1.3; color:var(--ink); }
+h3, .h3 { font-family:var(--font-heading); font-weight:600; font-size:var(--type-h3); line-height:1.3; letter-spacing:var(--tracking-h3); color:var(--ink); }
+h4, .h4, .card-title { font-family:var(--font-heading); font-weight:600; font-size:var(--type-card); line-height:1.35; color:var(--ink); }
+h5, .h5, h6, .h6 { font-family:var(--font-body); font-weight:700; font-size:var(--type-base); line-height:1.4; color:var(--ink); }
+p, .body { font-family:var(--font-body); font-weight:400; font-size:var(--type-base); line-height:var(--leading-normal); color:var(--ink-2); max-width:var(--layout-prose-max); text-wrap:pretty; }
+.prose { font-size:var(--type-lg); line-height:var(--leading-relaxed); color:var(--ink-2); max-width:var(--layout-prose-max); }
+small, .caption, .meta-text { font-size:var(--type-meta); color:var(--muted); line-height:1.45; }
+.eyebrow { font-family:var(--font-label); font-weight:600; font-size:var(--type-3xs); letter-spacing:var(--tracking-eyebrow); color:var(--muted); text-transform:uppercase; }
+.form-label { font-family:var(--font-body); font-weight:500; font-size:var(--type-sm); line-height:18px; color:var(--ink-2); }
+code, kbd, pre, .mono, .label { font-family:var(--font-mono); font-size:calc(12px * var(--fs-scale)); color:var(--muted); }
+.numeric, .stat, .kpi { font-family:var(--font-display); font-weight:700; font-size:var(--type-kpi); font-variant-numeric:tabular-nums; letter-spacing:var(--tracking-kpi); color:var(--ink); }
+/* VENDOR CHANGE: upstream styles EVERY <a> as an accent link. In this app most
+   anchors are navigation and card wrappers that carry their own Tailwind
+   colour, and the blanket rule turned the whole sidebar azure. Scoped to
+   anchors that opt in via .ds-link or sit inside prose. */
+.ds-link, .ds-prose a { color:var(--accent-text); font-weight:600; text-decoration:none; transition:color var(--duration-fast) var(--ease-out); }
+.ds-link:hover, .ds-prose a:hover { color:var(--primary-hover); text-decoration:underline; text-underline-offset:2px; }
+:focus-visible { outline:var(--bw-focus) solid var(--focus); outline-offset:var(--focus-offset); }
+::selection { background:var(--select); color:var(--ink); }
+*, *::before, *::after { box-sizing:border-box; }
+input:not([data-plain]):focus, select:focus, textarea:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px var(--accent-ring); }
+/* Scrollbar abu — wajib di setiap area scroll */
+.om-scroll { scrollbar-color:var(--faint-2) transparent; }
+.om-scroll::-webkit-scrollbar { width:9px; height:9px; }
+.om-scroll::-webkit-scrollbar-thumb { background:var(--faint-2); border-radius:999px; }
+.om-scroll::-webkit-scrollbar-track { background:transparent; }
+.no-scrollbar { scrollbar-width:none; }
+.no-scrollbar::-webkit-scrollbar { display:none; }
+input[type="range"].ds-range { -webkit-appearance:none; appearance:none; background:transparent; }
+input[type="range"].ds-range::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:999px; border:2px solid var(--surface); background:var(--primary); box-shadow:0 1px 4px rgba(0,0,0,0.38); cursor:grab; }
+input[type="range"].ds-range::-moz-range-thumb { width:16px; height:16px; border-radius:999px; border:2px solid var(--surface); background:var(--primary); cursor:grab; }
+@keyframes ds-in { from { opacity:0; transform:scale(0.92); } to { opacity:1; transform:scale(1); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration:0ms !important; animation-duration:0ms !important; } }

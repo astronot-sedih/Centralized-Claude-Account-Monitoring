@@ -1,6 +1,13 @@
 import { Inter, Space_Grotesk, Outfit, Manrope, Fira_Code } from "next/font/google";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import "material-symbols/outlined.css";
+// Dakara DS, in load order: tokens -> derived colour/type -> component styles.
+// Imported as their own stylesheets rather than @import'd inside globals.css,
+// because nesting them there routes them through the Tailwind pipeline, which
+// fails to parse them.
+import "@/vendor/dakara/tokens.css";
+import "@/vendor/dakara/colors_and_type.css";
+import "@/vendor/dakara/components.css";
 import "./globals.css";
 import { ThemeProvider } from "@/shared/components/ThemeProvider";
 import "@/lib/network/initOutboundProxy"; // Auto-initialize outbound proxy env

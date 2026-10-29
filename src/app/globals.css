@@ -10,72 +10,19 @@
 
 /* ============================================================
    Dakara DS v2.0 — dark-first, one azure accent (#1aa7de)
-   Values from dakara-ds/tokens.css + colors_and_type.css.
 
-   The repo's --color-* names are KEPT so the ~2200 Tailwind
-   utilities (bg-surface, text-text-muted, border-border …) keep
-   working; only their values move to Dakara. Dakara's own names
-   (--bg, --ink, --sev-*) are also defined, because the Dakara
-   React components read those directly.
+   The full token sheets are vendored and imported by layout.js
+   (src/vendor/dakara/tokens.css + colors_and_type.css), so the
+   377 tokens the .ds-* component styles depend on — sizes, radii,
+   spacing, type scale, severity — are all present. Porting a
+   hand-picked subset left .ds-btn with padding:0 because
+   --pad-control-md did not exist.
+
+   Below only MAPS the repo's own --color-* names onto Dakara's,
+   so the ~2200 Tailwind utilities across 133 files keep working
+   and change appearance without being touched.
    ============================================================ */
-
-/* Dark is the default theme (Dakara SKILL.md: dark-first). */
 :root {
-  /* ---- Dakara's own vocabulary (read by .ds-* components) ---- */
-  --bg: #080909;
-  --surface: #0e0f10;
-  --surface-2: #18181b;
-  --elevated: #121214;
-  --line: #ffffff29;
-  --line-soft: #ffffff1a;
-  --line-2: #ffffff0f;
-  --ink: #fafafa;
-  --ink-2: #d4d4d8;
-  --muted: #a1a1aa;
-  --faint: #71717a;
-  --input: #ffffff0f;
-  --primary: #1aa7de;
-  --primary-hover: #38bdee;
-  --on-primary: #04202b;
-  --accent-text: #38bdee;
-  --select: #1aa7de1f;
-  --select-line: #1aa7de80;
-
-  /* Severity — one solid colour per tier, identical in both themes */
-  --sev-critical: #c92e2e;  --sev-critical-on: #ffffff;
-  --sev-high:     #ff8a1f;  --sev-high-on:     #0a0a0c;
-  --sev-medium:   #f0ab00;  --sev-medium-on:   #0a0a0c;
-  --sev-low:      #10a45a;  --sev-low-on:      #0a0a0c;
-  --sev-info:     #3578b5;  --sev-info-on:     #ffffff;
-
-  /* soft/line/text derived via color-mix so they work on any ground */
-  --sev-critical-soft: color-mix(in srgb, var(--sev-critical) 14%, transparent);
-  --sev-critical-line: color-mix(in srgb, var(--sev-critical) 50%, transparent);
-  --sev-high-soft:     color-mix(in srgb, var(--sev-high) 14%, transparent);
-  --sev-high-line:     color-mix(in srgb, var(--sev-high) 50%, transparent);
-  --sev-medium-soft:   color-mix(in srgb, var(--sev-medium) 16%, transparent);
-  --sev-medium-line:   color-mix(in srgb, var(--sev-medium) 55%, transparent);
-  --sev-low-soft:      color-mix(in srgb, var(--sev-low) 14%, transparent);
-  --sev-low-line:      color-mix(in srgb, var(--sev-low) 50%, transparent);
-  --sev-info-soft:     color-mix(in srgb, var(--sev-info) 14%, transparent);
-  --sev-info-line:     color-mix(in srgb, var(--sev-info) 45%, transparent);
-  --sev-critical-text: color-mix(in srgb, var(--sev-critical) 80%, var(--ink));
-  --sev-high-text:     color-mix(in srgb, var(--sev-high) 58%, var(--ink));
-  --sev-medium-text:   color-mix(in srgb, var(--sev-medium) 45%, var(--ink));
-  --sev-low-text:      color-mix(in srgb, var(--sev-low) 65%, var(--ink));
-  --sev-info-text:     color-mix(in srgb, var(--sev-info) 70%, var(--ink));
-
-  /* Type — Space Grotesk (numbers/display), Outfit (headings),
-     Manrope (body), Fira Code (labels/mono) */
-  /* Families come from next/font (see src/app/layout.js) — self-hosted, so no
-     render-blocking webfont fetch and no @import that Turbopack rejects. */
-  --font-display: var(--font-ds-display), "Space Grotesk", system-ui, sans-serif;
-  --font-heading: var(--font-ds-heading), "Outfit", system-ui, sans-serif;
-  --font-body: var(--font-ds-body), "Manrope", system-ui, -apple-system, sans-serif;
-  --font-label: var(--font-ds-mono), "Fira Code", Menlo, ui-monospace, monospace;
-  --font-mono: var(--font-ds-mono), "Fira Code", Menlo, ui-monospace, monospace;
-
-  /* ---- Repo vocabulary, mapped onto the above ---- */
   --color-brand-50:  #e7f6fc;
   --color-brand-100: #c2e9f8;
   --color-brand-200: #8ed7f2;
@@ -96,9 +43,9 @@
   --color-bg-light: var(--surface);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
-  --color-surface-3: #202024;
-  --color-sidebar: #0b0c0d;
-  --color-sidebar-dark: #0b0c0d;
+  --color-surface-3: var(--elevated);
+  --color-sidebar: var(--sb-surface);
+  --color-sidebar-dark: var(--sb-surface);
 
   --color-border: var(--line);
   --color-border-dark: var(--line);
@@ -116,54 +63,25 @@
   --color-warning: var(--sev-medium);
   --color-info: var(--sev-info);
 
-  /* Radius — Dakara: cards 14, controls 8 (SKILL.md §6) */
-  --radius-brand: 8px;
-  --radius-brand-lg: 14px;
+  --radius-brand: var(--radius-md);
+  --radius-brand-lg: var(--radius-lg);
 
-  /* Dakara uses 1px translucent lines and NO shadow on cards. */
+  /* Dakara cards are a 1px translucent line on a surface — no shadow. */
   --shadow-soft: none;
   --shadow-warm: none;
-  --shadow-elevated: 0 12px 28px -4px rgba(0, 0, 0, 0.45);
-  --shadow-elev: 0 1px 2px rgba(0,0,0,0.4), 0 16px 48px -8px rgba(0,0,0,0.55);
+  --shadow-elevated: var(--shadow-2, 0 12px 28px -4px rgba(0,0,0,0.45));
+  --shadow-elev: var(--shadow-1, 0 1px 2px rgba(0,0,0,0.4));
   --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--primary) 30%, transparent);
 
   color-scheme: dark;
 }
 
-/* Light stays available; same accent, Dakara's light ground. */
-.light,
-:root:not(.dark) .light {
-  --bg: #f7f8fa;
-  --surface: #ffffff;
-  --surface-2: #f4f4f5;
-  --elevated: #ffffff;
-  --line: #c3c8d029;
-  --line-soft: #d8dce11a;
-  --line-2: #eaecef0f;
-  --ink: #0b0d10;
-  --ink-2: #3f3f46;
-  --muted: #4b5563;
-  --faint: #71717a;
-  --input: #0000000a;
-  --accent-text: #0a6a8c;
-  --color-sidebar: #f2f4f7;
-  --color-sidebar-dark: #f2f4f7;
-  --color-surface-3: #e4e4e7;
-  --shadow-elevated: 0 12px 28px -4px rgba(60, 50, 45, 0.06);
-  --shadow-elev: 0 1px 2px rgba(15,23,42,0.04), 0 12px 36px -8px rgba(15,23,42,0.10);
-  color-scheme: light;
-}
+.light { color-scheme: light; }
+.dark  { color-scheme: dark; }
 
-/* `.dark` is the default now, so the class only needs to re-assert it for
-   components that toggle it explicitly. */
-.dark {
-  color-scheme: dark;
-}
-
-/* next/font puts its --font-ds-* variables on <body>, not :root, so the
-   aliases that consume them are declared here. Tailwind's font-sans would
-   otherwise keep body on Inter. */
 body {
+  /* next/font declares --font-ds-* on <body>, so the aliases that consume
+     them must live here too; on :root they resolve to nothing. */
   --font-sans: var(--font-ds-body), 'Manrope', 'Inter', system-ui, sans-serif;
   --font-display: var(--font-ds-display), "Space Grotesk", system-ui, sans-serif;
   --font-heading: var(--font-ds-heading), "Outfit", system-ui, sans-serif;
@@ -176,12 +94,7 @@ body {
   font-family: var(--font-body);
 }
 
-/* Dakara: headings in Outfit, numerals and display in Space Grotesk. */
 h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); }
-.tabular-nums, [class*="tabular-nums"] { font-family: var(--font-display); font-variant-numeric: tabular-nums; }
-
-/* Cards are a 1px translucent line on a surface — no shadow (SKILL.md §6). */
-.shadow-soft, .shadow-warm { box-shadow: none !important; }
 
 /* ============================================================
    Fix native select dropdowns in dark mode
