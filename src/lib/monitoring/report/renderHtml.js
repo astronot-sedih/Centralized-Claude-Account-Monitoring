@@ -205,6 +205,54 @@ export function renderReportHtml(report) {
   <tbody>${body}</tbody>
 </table>`;
 
+  // Org-wide adoption. Rendered BEFORE the Claude Code block: it is the
+  // widest number, and a reader who meets the narrower one first anchors on a
+  // team half the real size.
+  const act = report?.claudeWeb?.activity;
+  const actBlock = act?.overview
+    ? (() => {
+        const o = act.overview;
+        const tiles = [
+          ["Kursi terpakai", `${o.utilization.value}%`],
+          ["Aktif harian", fmtNum(o.dau.value)],
+          ["Aktif mingguan", fmtNum(o.wau.value)],
+          ["Aktif bulanan", `${fmtNum(o.mau.value)} / ${fmtNum(o.totalMembers)}`],
+        ]
+          .map(
+            ([l, v]) =>
+              `<td style="padding:8px 10px;border:1px solid ${T.line};background:${T.surface}">
+                <div style="font-family:${T.fontLabel};font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:${T.muted}">${esc(l)}</div>
+                <div style="font-family:${T.fontDisplay};font-size:16px;font-weight:600;color:${T.ink}">${esc(v)}</div>
+              </td>`
+          )
+          .join("");
+
+        const rows3 = (act.members || [])
+          .map(
+            (m) =>
+              `<tr>${td(`<span style="font-weight:600">${esc(m.name || m.email || "-")}</span>`)}${td(
+                esc(fmtNum(m.chats)),
+                "right"
+              )}${td(esc(fmtNum(m.chatMessages)), "right")}${td(esc(fmtNum(m.coworkSessions)), "right")}${td(
+                esc(fmtNum(m.codeSessions)),
+                "right"
+              )}${td(esc(fmtNum(m.daysActive)), "right")}</tr>`
+          )
+          .join("");
+
+        return `<div style="font-family:${T.fontLabel};font-size:11px;color:${T.muted};margin:18px 0 6px 0">
+  ADOPSI TIM — semua produk Claude, seluruh anggota${act.dataAsOf ? `, per ${esc(act.dataAsOf)}` : ""}
+</div>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin:0 0 8px 0"><tr>${tiles}</tr></table>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background:${T.surface};border:1px solid ${T.line};border-radius:${T.radius}">
+  <thead><tr>${th("Anggota")}${th("Chat", "right")}${th("Pesan", "right")}${th("Sesi Cowork", "right")}${th("Sesi Code", "right")}${th("Hari aktif", "right")}</tr></thead>
+  <tbody>${rows3 || `<tr>${td(`<span style="color:${T.muted}">Belum ada data.</span>`)}</tr>`}</tbody>
+</table>`;
+      })()
+    : report?.claudeWeb?.activityError
+      ? banner("medium", "Data adopsi tim tidak terbaca", String(report.claudeWeb.activityError))
+      : "";
+
   // Web and Desktop use, from claude.ai. Rendered as its own block ABOVE the
   // notes and below the quota table: it answers "how much is the team using
   // Claude" for the people the quota table cannot see at all.
@@ -271,6 +319,7 @@ ${header}
 ${summary}
 ${coverage}
 ${table}
+${actBlock}
 ${webBlock}
 ${notes}
   </td></tr>

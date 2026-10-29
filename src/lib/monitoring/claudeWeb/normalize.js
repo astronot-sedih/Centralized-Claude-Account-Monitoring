@@ -106,3 +106,101 @@ export function monthRangeFor(dateKey) {
   }
   return { startDate: `${key.slice(0, 7)}-01`, endDate: key };
 }
+
+// ── Organization activity (the /analytics/activity family) ──────────────────
+//
+// A wider lens than the Claude Code metrics above: these cover EVERY member,
+// including the people whose whole use of Claude is chatting in the browser
+// or in Desktop. On this team that is 9 people rather than 5.
+
+/** A `{value, change_percent}` pair, flattened. */
+const metric = (m) => ({
+  value: num(m?.value) ?? 0,
+  // A missing change is null, never 0: "unchanged" and "no comparison
+  // available" are different claims, and 0 asserts the first.
+  changePercent: num(m?.change_percent),
+});
+
+/** Adoption headline: how much of the team actually uses Claude. */
+export function normalizeActivityOverview(payload) {
+  if (!payload) return null;
+  return {
+    dau: metric(payload.dau),
+    wau: metric(payload.wau),
+    mau: metric(payload.mau),
+    // Percent of seats used — the number a seat-based plan decision rests on.
+    utilization: metric(payload.utilization),
+    pendingInvites: metric(payload.pending_invites),
+    stickiness: num(payload.stickiness),
+    totalMembers: num(payload.total_members) ?? 0,
+    targetDate: payload.target_date || null,
+    dataAsOf: payload.data_as_of || null,
+  };
+}
+
+/** Cowork rates. */
+export function normalizeCoworkOverview(payload) {
+  if (!payload) return null;
+  return {
+    sessionsPerDay: metric(payload.sessions_per_day),
+    fileEditsPerDay: metric(payload.file_edits_per_day),
+    fileOperationsPerDay: metric(payload.file_operations_per_day),
+    usersWithSessionsPercent: metric(payload.users_with_sessions_percent),
+    dataAsOf: payload.data_as_of || null,
+  };
+}
+
+/**
+ * Per-member rows across every product, busiest first.
+ *
+ * "Busiest" is total engagement — messages plus sessions of any kind — not
+ * any single product: someone with 268 chat messages and no Claude Code
+ * sessions is a heavy user, and ranking by one product would bury them.
+ */
+export function normalizeMembers(members = []) {
+  return members
+    .map((m) => {
+      const chatMessages = num(m?.message_count) ?? 0;
+      const coworkSessions = num(m?.cowork_session_count) ?? 0;
+      const codeSessions = num(m?.code_session_count) ?? 0;
+      return {
+        email: m?.email || null,
+        name: m?.name || null,
+        role: m?.role || null,
+        seatTier: m?.seat_tier || null,
+        chats: num(m?.chat_count) ?? 0,
+        chatMessages,
+        coworkSessions,
+        coworkMessages: num(m?.cowork_message_count) ?? 0,
+        codeSessions,
+        fileEdits: num(m?.file_edit_count) ?? 0,
+        pullRequests: num(m?.pull_request_count) ?? 0,
+        projectsCreated: num(m?.projects_created_count) ?? 0,
+        artifacts: num(m?.artifacts_created_count) ?? 0,
+        daysActive: num(m?.days_active) ?? 0,
+        estimatedSpendUsd: num(m?.estimated_spend_us_dollars) ?? 0,
+        lastActive: m?.last_active || null,
+        engagement: chatMessages + coworkSessions + codeSessions,
+      };
+    })
+    .sort((a, b) => b.engagement - a.engagement);
+}
+
+/** `{date, value}` points, oldest first. */
+export function normalizeTimeseries(points = []) {
+  return (points || [])
+    .map((p) => ({ date: p?.date || null, value: num(p?.value) ?? 0 }))
+    .filter((p) => p.date)
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+}
+
+/** File-type mix, largest share first. */
+export function normalizeFileCategories(categories = []) {
+  return (categories || [])
+    .map((c) => ({
+      category: c?.category || "lainnya",
+      count: num(c?.file_operation_count) ?? 0,
+      share: num(c?.share) ?? 0,
+    }))
+    .sort((a, b) => b.count - a.count);
+}

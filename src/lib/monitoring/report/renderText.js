@@ -132,6 +132,42 @@ export function renderReportText(report) {
     }
   }
 
+  // Org-wide adoption FIRST: it is the widest number, and a reader who meets
+  // the Claude Code figure first anchors on a team half the real size.
+  const act = report?.claudeWeb?.activity;
+  if (act?.overview) {
+    const o = act.overview;
+    out.push("");
+    out.push("ADOPSI TIM (semua produk Claude, dari claude.ai)" + (act.dataAsOf ? `  per ${act.dataAsOf}` : ""));
+    out.push(
+      `  Kursi terpakai ${o.utilization.value}%   Aktif harian ${o.dau.value}` +
+        `   mingguan ${o.wau.value}   bulanan ${o.mau.value} dari ${o.totalMembers} anggota`
+    );
+    const W3 = { who: 34, chat: 7, msg: 8, cw: 8, code: 7, days: 6 };
+    const h3 =
+      pad("Anggota", W3.who) +
+      "  " + pad("Chat", W3.chat, true) +
+      "  " + pad("Pesan", W3.msg, true) +
+      "  " + pad("Cowork", W3.cw, true) +
+      "  " + pad("Code", W3.code, true) +
+      "  " + pad("Hari", W3.days, true);
+    out.push(h3);
+    out.push("-".repeat(h3.length));
+    for (const m of act.members || []) {
+      out.push(
+        pad(m.name || m.email || "-", W3.who) +
+          "  " + pad(fmtNum(m.chats), W3.chat, true) +
+          "  " + pad(fmtNum(m.chatMessages), W3.msg, true) +
+          "  " + pad(fmtNum(m.coworkSessions), W3.cw, true) +
+          "  " + pad(fmtNum(m.codeSessions), W3.code, true) +
+          "  " + pad(fmtNum(m.daysActive), W3.days, true)
+      );
+    }
+  } else if (report?.claudeWeb?.activityError) {
+    out.push("");
+    out.push(`ADOPSI TIM: tidak terbaca — ${report.claudeWeb.activityError}`);
+  }
+
   // Web and Desktop use. Stated even when the read failed: a missing section
   // reads as "the team did nothing there", the costliest misreading here.
   const web = report?.claudeWeb;

@@ -10,7 +10,14 @@ import { getUsageHistory } from "@/lib/db/repos/usageRepo.js";
 import { getPricing } from "@/lib/db/repos/pricingRepo.js";
 import { listProfiles, getConnectionProfileMap } from "@/lib/db/repos/profilesRepo.js";
 import { claudeWebSettingsFromEnv, fetchTeamAnalytics } from "./claudeWeb/client.js";
-import { normalizeOverview, normalizeUsers, monthRangeFor } from "./claudeWeb/normalize.js";
+import { fetchActivity } from "./claudeWeb/activity.js";
+import {
+  normalizeOverview,
+  normalizeUsers,
+  monthRangeFor,
+  normalizeActivityOverview,
+  normalizeMembers,
+} from "./claudeWeb/normalize.js";
 import { buildReport } from "./report/buildReport.js";
 import { collectOnce } from "./quotaCollector.js";
 import { pruneSnapshotsOlderThan } from "@/lib/db/repos/quotaSnapshotsRepo.js";
@@ -83,13 +90,26 @@ export async function assembleReport(dateKey, timeZone) {
   const web = claudeWebSettingsFromEnv();
   if (web.configured) {
     const range = monthRangeFor(dateKey);
-    const r = await fetchTeamAnalytics({ ...web, ...range });
+    // Both lenses in parallel: Claude Code detail, and org-wide adoption that
+    // also covers members who only ever chat in the browser or Desktop.
+    const [r, a] = await Promise.all([
+      fetchTeamAnalytics({ ...web, ...range }),
+      fetchActivity({ ...web, startDate: range.startDate }),
+    ]);
     claudeWeb = {
       ok: r.ok,
       error: r.error,
       range,
       summary: r.overview ? normalizeOverview(r.overview) : null,
       users: normalizeUsers(r.users),
+      activity: a.ok
+        ? {
+            overview: normalizeActivityOverview(a.overview),
+            members: normalizeMembers(a.members),
+            dataAsOf: a.dataAsOf,
+          }
+        : null,
+      activityError: a.error,
     };
   }
 

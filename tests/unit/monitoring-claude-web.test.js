@@ -190,3 +190,173 @@ describe("monthRangeFor", () => {
     expect(r.startDate).toMatch(/^\d{4}-\d{2}-01$/);
   });
 });
+
+// ── Organization activity (the /analytics/activity family) ──────────────────
+
+import { fetchActivity } from "../../src/lib/monitoring/claudeWeb/activity.js";
+import {
+  normalizeActivityOverview,
+  normalizeCoworkOverview,
+  normalizeMembers,
+  normalizeTimeseries,
+  normalizeFileCategories,
+} from "../../src/lib/monitoring/claudeWeb/normalize.js";
+
+// Shapes copied from a real probe of this organization.
+const ACTIVITY = {
+  wau: { value: 9, change_percent: 12.5 },
+  dau: { value: 8, change_percent: 0 },
+  mau: { value: 9, change_percent: 0 },
+  utilization: { value: 90, change_percent: null },
+  pending_invites: { value: 0, change_percent: null },
+  stickiness: 88.89,
+  total_members: 10,
+  target_date: "2026-10-28",
+  data_as_of: "2026-10-27",
+};
+
+describe("normalizeActivityOverview", () => {
+  it("flattens the value/change pairs", () => {
+    const o = normalizeActivityOverview(ACTIVITY);
+    expect(o.wau.value).toBe(9);
+    expect(o.wau.changePercent).toBeCloseTo(12.5, 3);
+    expect(o.totalMembers).toBe(10);
+    expect(o.utilization.value).toBe(90);
+  });
+
+  it("keeps a missing change null rather than calling it unchanged", () => {
+    // "no comparison available" and "flat" are different claims; 0 asserts
+    // the second.
+    const o = normalizeActivityOverview(ACTIVITY);
+    expect(o.utilization.changePercent).toBe(null);
+    expect(o.dau.changePercent).toBe(0);
+  });
+
+  it("returns null for an absent payload", () => {
+    expect(normalizeActivityOverview(null)).toBe(null);
+  });
+});
+
+describe("normalizeMembers", () => {
+  const raw = [
+    { email: "chat@x.io", message_count: 268, chat_count: 29, cowork_session_count: 41, code_session_count: 0, days_active: 25 },
+    { email: "code@x.io", message_count: 0, chat_count: 0, cowork_session_count: 13, code_session_count: 33, days_active: 28 },
+  ];
+
+  it("ranks by total engagement, not by one product", () => {
+    // Someone with 268 chat messages and no Claude Code sessions is a heavy
+    // user; ranking by Claude Code alone would bury them.
+    const rows = normalizeMembers(raw);
+    expect(rows[0].email).toBe("chat@x.io");
+    expect(rows[0].engagement).toBe(268 + 41 + 0);
+  });
+
+  it("includes members with no Claude Code activity at all", () => {
+    // These are precisely the people the proxy and the Claude Code metrics
+    // cannot see — leaving them out is what this whole section exists to fix.
+    const rows = normalizeMembers(raw);
+    expect(rows.find((r) => r.email === "chat@x.io").codeSessions).toBe(0);
+    expect(rows).toHaveLength(2);
+  });
+
+  it("tolerates a row with nothing but an email", () => {
+    const [r] = normalizeMembers([{ email: "a@x.io" }]);
+    expect(r.chatMessages).toBe(0);
+    expect(r.engagement).toBe(0);
+  });
+});
+
+describe("normalizeTimeseries and file categories", () => {
+  it("sorts points oldest first and drops undated ones", () => {
+    const rows = normalizeTimeseries([
+      { date: "2026-10-27", value: 8 },
+      { value: 3 },
+      { date: "2026-10-25", value: 3 },
+    ]);
+    expect(rows.map((r) => r.date)).toEqual(["2026-10-25", "2026-10-27"]);
+  });
+
+  it("sorts file categories largest first", () => {
+    const rows = normalizeFileCategories([
+      { category: "Code & scripts", file_operation_count: 2200, share: 0.326 },
+      { category: "Documents & reports", file_operation_count: 2224, share: 0.3296 },
+    ]);
+    expect(rows[0].category).toBe("Documents & reports");
+  });
+});
+
+describe("normalizeCoworkOverview", () => {
+  it("flattens the rate pairs", () => {
+    const c = normalizeCoworkOverview({
+      sessions_per_day: { value: 6, change_percent: 0 },
+      file_operations_per_day: { value: 56, change_percent: -6.67 },
+      file_edits_per_day: { value: 0, change_percent: -100 },
+      users_with_sessions_percent: { value: 50, change_percent: 25 },
+    });
+    expect(c.sessionsPerDay.value).toBe(6);
+    expect(c.fileOperationsPerDay.changePercent).toBeCloseTo(-6.67, 2);
+  });
+});
+
+describe("fetchActivity", () => {
+  const opts = { orgId: "o", cookie: "sessionKey=x", startDate: "2026-10-01", configured: true };
+
+  it("reports one dead-cookie message, not one per endpoint", async () => {
+    // Five parallel calls against an expired session produce five identical
+    // errors; repeating them in the banner is noise, not information.
+    const r = await fetchActivity({ ...opts, fetchImpl: async () => ({ ok: false, status: 401 }) });
+    expect(r.ok).toBe(false);
+    expect(r.error.match(/kedaluwarsa/g)).toHaveLength(1);
+  });
+
+  it("keeps what loaded when only some endpoints fail", async () => {
+    const r = await fetchActivity({
+      ...opts,
+      fetchImpl: async (url) =>
+        url.includes("/activity/overview")
+          ? { ok: true, json: async () => ACTIVITY }
+          : { ok: false, status: 500 },
+    });
+    expect(r.ok).toBe(true);
+    expect(r.overview).toBeTruthy();
+    expect(r.members).toEqual([]);
+  });
+
+  it("does not call out when the credentials are absent", async () => {
+    let called = false;
+    const r = await fetchActivity({
+      ...opts,
+      configured: false,
+      fetchImpl: async () => { called = true; return { ok: true, json: async () => ({}) }; },
+    });
+    expect(called).toBe(false);
+    expect(r.error).toMatch(/belum diisi/);
+  });
+
+  it("never lets the cookie reach the error string", async () => {
+    const r = await fetchActivity({
+      ...opts,
+      cookie: "sessionKey=sk-ant-sid01-" + "Q".repeat(80),
+      fetchImpl: async () => { throw new Error("boom sk-ant-sid01-" + "Q".repeat(80)); },
+    });
+    expect(r.error).not.toMatch(/sk-ant-sid01-Q/);
+    expect(r.error).toMatch(/redacted/);
+  });
+});
+
+describe("fetchActivityUsers sort key", () => {
+  it("uses the API's sort vocabulary, not the member field name", async () => {
+    // "message_count" is the field on each member; the endpoint's sort key is
+    // "messages" and it answers 400 to the other.
+    const { fetchActivityUsers } = await import("../../src/lib/monitoring/claudeWeb/activity.js");
+    let seen = "";
+    await fetchActivityUsers({
+      orgId: "o",
+      cookie: "sessionKey=x",
+      startDate: "2026-10-01",
+      fetchImpl: async (url) => { seen = url; return { ok: true, json: async () => ({}) }; },
+    });
+    expect(seen).toContain("sort=messages");
+    expect(seen).not.toContain("message_count");
+  });
+});
