@@ -22,13 +22,14 @@ const liveHrefs = (navBlock.match(/href: "\/dashboard[^"]*"/g) ?? [])
 const systemHidden = /const SHOW_SYSTEM_SECTION = false/.test(uncommented);
 
 describe("sidebar is scoped to monitoring and reporting", () => {
-  it("shows exactly the five pages this product needs", () => {
+  it("shows exactly the pages this product needs", () => {
     expect(new Set(liveHrefs)).toEqual(new Set([
       "/dashboard/monitoring",   // the report — the whole point
       "/dashboard/providers",    // connect accounts, flag monitor-only
       "/dashboard/usage",        // proxied token/cost detail
       "/dashboard/quota",        // live per-provider quota
       "/dashboard/endpoint",     // API keys + per-key account pinning
+      "/dashboard/token-saver",  // RTK — moves the units the report counts
     ]));
   });
 
@@ -40,6 +41,12 @@ describe("sidebar is scoped to monitoring and reporting", () => {
     // Without a pin, a teammate's traffic lands on whichever account selection
     // picks, and every per-person figure in the report names the wrong person.
     expect(liveHrefs).toContain("/dashboard/endpoint");
+  });
+
+  it("keeps Token Saver visible — it moves the units the report counts", () => {
+    // RTK compresses tool_result content before translation, so tuning it
+    // changes the per-person figures the upgrade case rests on.
+    expect(liveHrefs).toContain("/dashboard/token-saver");
   });
 
   it("hides the System block, which is routing and media tooling", () => {
@@ -56,7 +63,7 @@ describe("sidebar is scoped to monitoring and reporting", () => {
   it("hides the routing-tool pages rather than deleting them", () => {
     // Hidden, not removed: the routes still work, several share components
     // with pages we keep, and restoring one is a one-line change.
-    for (const gone of ["combos", "token-saver", "cli-tools", "proxy-pools",
+    for (const gone of ["combos", "cli-tools", "proxy-pools",
                         "skills", "console-log", "translator", "basic-chat"]) {
       expect(liveHrefs, `${gone} should not be in the nav`)
         .not.toContain(`/dashboard/${gone}`);

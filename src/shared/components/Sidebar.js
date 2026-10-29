@@ -34,10 +34,13 @@ const navItems = [
   // teammate's traffic lands on whichever account selection picks, and every
   // per-person figure in the report names the wrong person.
   { href: "/dashboard/endpoint", label: "Endpoint & Key", icon: "api" },
+  // RTK compresses tool_result content before translation, so it moves the
+  // very units the report counts. Visible because tuning it changes the
+  // numbers the upgrade case rests on.
+  { href: "/dashboard/token-saver", label: "Token Saver", icon: "savings" },
   // Routing/tooling pages, not part of monitoring:
   // { href: "/dashboard/basic-chat", label: "Basic Chat", icon: "chat" },
   // { href: "/dashboard/combos", label: "Combo & Vision Adapter", icon: "layers" },
-  // { href: "/dashboard/token-saver", label: "Token Saver", icon: "savings" },
   // { href: "/dashboard/pxpipe", label: "PXPIPE", icon: "image" },
   // { href: "/dashboard/cli-tools", label: "CLI Tools", icon: "terminal" },
 ];
