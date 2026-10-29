@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import ProfilesCard from "@/components/monitoring/ProfilesCard";
+import useProfileStore from "@/store/profileStore";
+import { scopeToProfile } from "@/lib/monitoring/workspace";
 import PropTypes from "prop-types";
 import {
   Card,
@@ -99,6 +101,7 @@ const APIKEY_INITIAL_VISIBLE = 20;
 
 export default function ProvidersPage() {
   const [connections, setConnections] = useState([]);
+  const { activeProfileId, load: loadProfiles, loaded: profilesLoaded } = useProfileStore();
   const [providerNodes, setProviderNodes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAllApikey, setShowAllApikey] = useState(false);
@@ -173,7 +176,14 @@ export default function ProvidersPage() {
 
   const getProviderStats = (providerId, authType) => {
     const authTypes = Array.isArray(authType) ? authType : [authType];
-    const providerConnections = connections.filter(
+    // Scoped to the active workspace. Unassigned connections stay visible in
+    // every profile — hiding them would make existing setup look deleted.
+    const inWorkspace = scopeToProfile(
+      connections,
+      (c) => c?.providerSpecificData?.profileId || null,
+      activeProfileId
+    );
+    const providerConnections = inWorkspace.filter(
       (c) => c.provider === providerId && authTypes.includes(c.authType),
     );
 

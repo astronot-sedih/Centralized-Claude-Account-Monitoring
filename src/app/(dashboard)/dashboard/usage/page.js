@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState, useEffect } from "react";
-import { profileOptions } from "@/lib/monitoring/profileFilter";
+import useProfileStore from "@/store/profileStore";
 import { useSearchParams, useRouter } from "next/navigation";
 import { RequestLogger, CardSkeleton, SegmentedControl } from "@/shared/components";
 import UsageStats from "@/shared/components/UsageStats";
@@ -30,41 +30,11 @@ function UsageContent() {
 
   const [period, setPeriod] = useState("today");
 
-  // Profiles name the PERSON who owns a connection, so usage can be read the
-  // way the question is asked. Loaded here and handed down, so UsageStats
-  // stays usable without them.
-  const [profileId, setProfileId] = useState("");
-  const [profiles, setProfiles] = useState([]);
-  const [assignments, setAssignments] = useState({});
-  const [connectionIds, setConnectionIds] = useState([]);
+  // The active workspace comes from the header switcher, so one control
+  // drives Providers, Usage and the rest rather than a dropdown per page.
+  const { activeProfileId: profileId, assignments, load: loadProfiles, loaded } = useProfileStore();
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [pRes, cRes] = await Promise.all([
-          fetch("/api/profiles", { cache: "no-store" }),
-          fetch("/api/providers?provider=claude", { cache: "no-store" }),
-        ]);
-        const p = await pRes.json().catch(() => ({}));
-        const c = await cRes.json().catch(() => ({}));
-        if (cancelled) return;
-        setProfiles(p.profiles || []);
-        setAssignments(p.assignments || {});
-        setConnectionIds(
-          (Array.isArray(c) ? c : c?.connections || []).map((x) => x.id).filter(Boolean)
-        );
-      } catch {
-        // No profiles is a valid state: the filter simply offers "all".
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  const tabFromUrl = searchParams.get("tab");
-  const activeTab = tabFromUrl && ["overview", "logs", "details"].includes(tabFromUrl)
-    ? tabFromUrl
-    : "overview";
+  useEffect(() => { if (!loaded) loadProfiles(); }, [loaded, loadProfiles]);
 
   const handleTabChange = (value) => {
     if (value === activeTab) return;
@@ -88,19 +58,6 @@ function UsageContent() {
         />
         {activeTab === "overview" && (
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-            {profiles.length ? (
-              <select
-                value={profileId}
-                onChange={(e) => setProfileId(e.target.value)}
-                aria-label="Filter usage by profile"
-                className="rounded-lg border bg-transparent px-2 py-1.5 text-xs"
-                style={{ borderColor: "var(--line-soft)" }}
-              >
-                {profileOptions(profiles, assignments, connectionIds).map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            ) : null}
             <SegmentedControl
               options={PERIODS}
               value={period}
