@@ -132,6 +132,41 @@ export function renderReportText(report) {
     }
   }
 
+  // Web and Desktop use. Stated even when the read failed: a missing section
+  // reads as "the team did nothing there", the costliest misreading here.
+  const web = report?.claudeWeb;
+  if (web?.summary) {
+    const s2 = web.summary;
+    out.push("");
+    out.push(
+      "PEMAKAIAN LEWAT WEB & DESKTOP (analytics claude.ai)" +
+        (web.range ? `  ${web.range.startDate} s/d ${web.range.endDate}` : "")
+    );
+    out.push(
+      `  Est. biaya ${fmtUsd(s2.totalCostUsd)}   Pengguna aktif ${s2.activeUsers}` +
+        `   Sesi ${fmtNum(s2.totalSessions)}   Baris ${fmtNum(s2.linesAccepted)}`
+    );
+    const W2 = { who: 34, cost: 12, avg: 12, sess: 7 };
+    const h2 =
+      pad("Orang", W2.who) +
+      "  " + pad("Est. biaya", W2.cost, true) +
+      "  " + pad("Rata2/hari", W2.avg, true) +
+      "  " + pad("Sesi", W2.sess, true);
+    out.push(h2);
+    out.push("-".repeat(h2.length));
+    for (const u of web.users || []) {
+      out.push(
+        pad(u.displayName || u.email || "-", W2.who) +
+          "  " + pad(fmtUsd(u.totalCostUsd), W2.cost, true) +
+          "  " + pad(fmtUsd(u.avgCostPerDayUsd), W2.avg, true) +
+          "  " + pad(fmtNum(u.sessions), W2.sess, true)
+      );
+    }
+  } else if (web?.error) {
+    out.push("");
+    out.push(`PEMAKAIAN LEWAT WEB & DESKTOP: tidak terbaca — ${web.error}`);
+  }
+
   out.push("");
   out.push("CATATAN");
   for (const f of report?.footnotes || []) out.push(`- ${f}`);

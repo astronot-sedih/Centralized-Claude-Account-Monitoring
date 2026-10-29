@@ -85,3 +85,38 @@ describe("renderReportText — reset times are local", () => {
     expect(t).not.toContain("16:00Z");
   });
 });
+
+describe("web & desktop section", () => {
+  const web = {
+    ok: true,
+    range: { startDate: "2026-10-01", endDate: "2026-10-29" },
+    summary: { totalCostUsd: 1548.81, activeUsers: 5, totalSessions: 199, linesAccepted: 90767 },
+    users: [{ email: "a@x.io", totalCostUsd: 99.5, avgCostPerDayUsd: 4.1, sessions: 12 }],
+  };
+
+  it("renders the per-person figures the proxy cannot see", async () => {
+    const { renderReportText: renderText } = await import("../../src/lib/monitoring/report/renderText.js");
+    const out = renderText({ dateKey: "2026-10-29", rows: [], summary: {}, coverage: {}, claudeWeb: web });
+    expect(out).toMatch(/WEB & DESKTOP/);
+    expect(out).toMatch(/a@x\.io/);
+    expect(out).toMatch(/\$1548\.81|\$1,548\.81/);
+  });
+
+  it("states a failed read instead of dropping the section", async () => {
+    // A missing section reads as "the team did nothing on web and desktop",
+    // the costliest misreading this report can produce.
+    const { renderReportText: renderText } = await import("../../src/lib/monitoring/report/renderText.js");
+    const out = renderText({
+      dateKey: "2026-10-29", rows: [], summary: {}, coverage: {},
+      claudeWeb: { ok: false, error: "sesi claude.ai kedaluwarsa", summary: null, users: [] },
+    });
+    expect(out).toMatch(/tidak terbaca/);
+    expect(out).toMatch(/kedaluwarsa/);
+  });
+
+  it("leaves the section out entirely when the integration is off", async () => {
+    const { renderReportText: renderText } = await import("../../src/lib/monitoring/report/renderText.js");
+    const out = renderText({ dateKey: "2026-10-29", rows: [], summary: {}, coverage: {} });
+    expect(out).not.toMatch(/WEB & DESKTOP/);
+  });
+});

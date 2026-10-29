@@ -9,6 +9,8 @@ import { getSnapshotsForDate } from "@/lib/db/repos/quotaSnapshotsRepo.js";
 import { getUsageHistory } from "@/lib/db/repos/usageRepo.js";
 import { getPricing } from "@/lib/db/repos/pricingRepo.js";
 import { listProfiles, getConnectionProfileMap } from "@/lib/db/repos/profilesRepo.js";
+import { claudeWebSettingsFromEnv, fetchTeamAnalytics } from "./claudeWeb/client.js";
+import { normalizeOverview, normalizeUsers, monthRangeFor } from "./claudeWeb/normalize.js";
 import { buildReport } from "./report/buildReport.js";
 import { collectOnce } from "./quotaCollector.js";
 import { pruneSnapshotsOlderThan } from "@/lib/db/repos/quotaSnapshotsRepo.js";
@@ -73,6 +75,24 @@ export async function assembleReport(dateKey, timeZone) {
     // the whole report down.
   }
 
+  // Web and Desktop use, from claude.ai's org analytics. This is the only
+  // source that sees teammates who never route through the gateway, so the
+  // emailed report would otherwise understate the team to the person deciding
+  // on a plan. Fail-open: a dead cookie costs this section, not the report.
+  let claudeWeb = null;
+  const web = claudeWebSettingsFromEnv();
+  if (web.configured) {
+    const range = monthRangeFor(dateKey);
+    const r = await fetchTeamAnalytics({ ...web, ...range });
+    claudeWeb = {
+      ok: r.ok,
+      error: r.error,
+      range,
+      summary: r.overview ? normalizeOverview(r.overview) : null,
+      users: normalizeUsers(r.users),
+    };
+  }
+
   // samplesExpected = one sample per hour of the day, which is what the
   // sampler aims for; coverage below that is reported, never hidden.
   return buildReport({
@@ -83,6 +103,7 @@ export async function assembleReport(dateKey, timeZone) {
     usageByConnection,
     pricing,
     profileNames,
+    claudeWeb,
   });
 }
 

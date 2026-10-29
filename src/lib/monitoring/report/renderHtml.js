@@ -205,6 +205,57 @@ export function renderReportHtml(report) {
   <tbody>${body}</tbody>
 </table>`;
 
+  // Web and Desktop use, from claude.ai. Rendered as its own block ABOVE the
+  // notes and below the quota table: it answers "how much is the team using
+  // Claude" for the people the quota table cannot see at all.
+  const web = report?.claudeWeb;
+  const webBlock = web?.summary
+    ? (() => {
+        const s2 = web.summary;
+        const tiles = [
+          ["Est. biaya API", fmtUsd(s2.totalCostUsd)],
+          ["Pengguna aktif", fmtNum(s2.activeUsers)],
+          ["Sesi", fmtNum(s2.totalSessions)],
+          ["Baris diterima", fmtNum(s2.linesAccepted)],
+        ]
+          .map(
+            ([l, v]) =>
+              `<td style="padding:8px 10px;border:1px solid ${T.line};background:${T.surface}">
+                <div style="font-family:${T.fontLabel};font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:${T.muted}">${esc(l)}</div>
+                <div style="font-family:${T.fontDisplay};font-size:16px;font-weight:600;color:${T.ink}">${esc(v)}</div>
+              </td>`
+          )
+          .join("");
+
+        const rows2 = (web.users || [])
+          .map(
+            (u) =>
+              `<tr>${td(`<span style="font-weight:600">${esc(u.displayName || u.email || "-")}</span>`)}${td(
+                `<span style="font-family:${T.fontLabel};font-size:11px;color:${T.ink2}">${esc(u.status || "-")}</span>`
+              )}${td(esc(fmtUsd(u.totalCostUsd)), "right", `font-family:${T.fontDisplay};font-weight:600`)}${td(
+                esc(fmtUsd(u.avgCostPerDayUsd)),
+                "right",
+                `font-family:${T.fontDisplay}`
+              )}${td(esc(fmtNum(u.sessions)), "right")}${td(esc(fmtNum(u.linesAccepted)), "right")}</tr>`
+          )
+          .join("");
+
+        return `<div style="font-family:${T.fontLabel};font-size:11px;color:${T.muted};margin:18px 0 6px 0">
+  PEMAKAIAN LEWAT WEB &amp; DESKTOP — dari analytics organisasi claude.ai${web.range ? `, ${esc(web.range.startDate)} s/d ${esc(web.range.endDate)}` : ""}
+</div>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin:0 0 8px 0"><tr>${tiles}</tr></table>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background:${T.surface};border:1px solid ${T.line};border-radius:${T.radius}">
+  <thead><tr>${th("Orang")}${th("Status")}${th("Est. biaya", "right")}${th("Rata-rata/hari", "right")}${th("Sesi", "right")}${th("Baris", "right")}</tr></thead>
+  <tbody>${rows2 || `<tr>${td(`<span style="color:${T.muted}">Belum ada data.</span>`)}</tr>`}</tbody>
+</table>`;
+      })()
+    // A failed read is stated, never silent: a missing section reads as "the
+    // team did nothing on web and desktop", which is the costliest misreading
+    // this report can produce.
+    : web && web.error
+      ? banner("medium", "Data claude.ai tidak terbaca", String(web.error))
+      : "";
+
   const notes = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin:14px 0 0 0">
   <tr><td style="background:${T.surface2};border-left:3px solid ${T.line};border-radius:4px;padding:10px 12px;font-family:${T.fontBody};font-size:11px;line-height:1.6;color:${T.ink2}">
     ${(report?.footnotes || []).map((f) => `<div style="padding:2px 0">${esc(f)}</div>`).join("")}
@@ -220,6 +271,7 @@ ${header}
 ${summary}
 ${coverage}
 ${table}
+${webBlock}
 ${notes}
   </td></tr>
 </table>

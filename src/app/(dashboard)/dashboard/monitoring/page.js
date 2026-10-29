@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import ReportTable from "@/components/monitoring/ReportTable";
 import CoverageBanner from "@/components/monitoring/CoverageBanner";
 import RecipientsCard from "@/components/monitoring/RecipientsCard";
+import ClaudeWebCard from "@/components/monitoring/ClaudeWebCard";
 import { SEV_CSS_VARS } from "@/lib/monitoring/tokens";
 import { summaryTiles } from "@/lib/monitoring/view";
 
@@ -93,6 +94,10 @@ export default function MonitoringPage() {
           );
         })}
       </div>
+
+      {/* Web and Desktop use, straight from claude.ai. Placed above the quota
+          table because it covers the teammates the quota table cannot see. */}
+      <ClaudeWebCard />
 
       <CoverageBanner coverage={report.coverage} />
 

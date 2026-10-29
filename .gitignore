@@ -110,3 +110,4 @@ tools/monitoring-tracker/progress.sqlite*
 monitoring-page.yml
 AGENTS.md
 monitoring-*.png
+tools/claude-web/out/

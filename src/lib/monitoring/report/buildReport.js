@@ -181,6 +181,11 @@ export function buildReport(input) {
     weekSnapshots = [],
     timeZone = "Asia/Jakarta",
     now = () => new Date().toISOString(),
+    // Web and Desktop use, read from claude.ai's own org analytics. Separate
+    // from `rows` on purpose: those are per-CONNECTION quota snapshots, these
+    // are per-PERSON figures for people who never touch the gateway. Merging
+    // them would double-count whoever appears in both.
+    claudeWeb = null,
   } = input || {};
 
   const rows = buildReportRows(input);
@@ -236,6 +241,14 @@ export function buildReport(input) {
       percent,
       partial: samplesExpected > 0 && samplesTaken < samplesExpected,
     },
-    footnotes: [...FOOTNOTES],
+    claudeWeb,
+    footnotes: [
+      ...FOOTNOTES,
+      // Only when the section is present. A note about a table that is not
+      // there would send the reader looking for it.
+      ...(claudeWeb?.summary
+        ? ["Bagian \"Web & Desktop\" berasal dari analytics organisasi claude.ai dan mencakup pemakaian yang TIDAK lewat router ini."]
+        : []),
+    ],
   };
 }
