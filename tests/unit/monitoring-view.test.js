@@ -37,9 +37,18 @@ describe("cellText", () => {
 
 describe("sourceLabel", () => {
   it("names the two sources plainly", () => {
-    expect(sourceLabel("9router")).toMatchObject({ label: "9router", measured: true });
+    // The STORED value is still "9router" — it is written into every snapshot
+    // row, so changing it would make old rows stop counting as measured — but
+    // the reader sees the product's name.
+    expect(sourceLabel("9router")).toMatchObject({ label: "Dakara Router", measured: true });
     expect(sourceLabel("desktop")).toMatchObject({ label: "Desktop", measured: false });
     expect(sourceLabel(null)).toMatchObject({ measured: false });
+  });
+
+  it("still recognises the stored spelling as measured", () => {
+    // A rename that silently reclassified existing snapshots as unmeasurable
+    // would blank the units and cost columns for every past day.
+    expect(sourceLabel("9router").measured).toBe(true);
   });
 });
 

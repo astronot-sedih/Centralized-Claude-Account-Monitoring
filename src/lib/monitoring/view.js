@@ -45,7 +45,9 @@ export function cellText(percent, { hasWindow, ok } = {}) {
 export function sourceLabel(source) {
   const measured = source === "9router";
   return {
-    label: measured ? "9router" : "Desktop",
+    // The stored source value stays "9router" — it is written into every
+    // snapshot row — but what the reader sees is the product's name.
+    label: measured ? "Dakara Router" : "Desktop",
     measured,
     severity: measured ? "low" : "info",
   };
@@ -92,7 +94,7 @@ export function summaryTiles(report) {
       label: "Terukur penuh",
       value: s.measuredCount || 0,
       tone: "info",
-      hint: "lewat 9router",
+      hint: "lewat Dakara Router",
     },
     {
       key: "unmeasured",

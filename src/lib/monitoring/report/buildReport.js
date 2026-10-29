@@ -19,7 +19,7 @@ export const LIMIT_PERCENT = 100;
  * the single most costly misreading this report can produce.
  */
 export const FOOTNOTES = Object.freeze([
-  "Kolom units dan estimasi biaya hanya terisi untuk akun yang jalan lewat 9router. Pemakaian dari Claude Desktop tidak bisa diukur per-akun.",
+  "Kolom units dan estimasi biaya hanya terisi untuk akun yang jalan lewat Dakara Router. Pemakaian dari Claude Desktop tidak bisa diukur per-akun.",
   '"tak terukur" berarti alat ini tidak dapat mengukurnya — BUKAN berarti akunnya tidak dipakai. Lihat kolom kuota untuk pemakaian sebenarnya.',
   "Angka biaya adalah estimasi setara harga API (USD), bukan tagihan. Paket Pro/Team ditagih per kursi, bukan per token.",
   "Units dihitung berbobot: cache_creation x1,25 + cache_read x0,1 + input x1 + output x5.",

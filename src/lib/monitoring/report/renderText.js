@@ -66,7 +66,9 @@ export function renderReportText(report) {
   // Window columns size to their widest label (per-model names like
   // "Mingguan opus 7h" overflow a fixed 12), with a floor for the values.
   const windowWidth = Math.max(13, ...keys.map((k) => labelOf(rows, k).length));
-  const W = { account: 26, profile: 10, provider: 9, source: 8, window: windowWidth, units: 12, cost: 12, reset: 7 };
+  // source is 13 wide so "Dakara Router" fits: pad() truncates with an
+  // ellipsis, and a clipped product name reads as a different product.
+  const W = { account: 26, profile: 10, provider: 9, source: 13, window: windowWidth, units: 12, cost: 12, reset: 7 };
 
   const out = [];
   out.push("LAPORAN USAGE CLAUDE TIM");
@@ -79,7 +81,7 @@ export function renderReportText(report) {
       : "RINGKASAN: tidak ada akun mendekati limit."
   );
   out.push(
-    `  ${s.measuredCount || 0} akun terukur lewat 9router, ${s.unmeasuredCount || 0} hanya kuota.`
+    `  ${s.measuredCount || 0} akun terukur lewat Dakara Router, ${s.unmeasuredCount || 0} hanya kuota.`
   );
   if (s.limitDaysThisWeek) {
     out.push(`  Limit tercapai pada ${s.limitDaysThisWeek} hari dalam 7 hari terakhir.`);
@@ -114,7 +116,8 @@ export function renderReportText(report) {
         pad(r.email || r.account, W.account) +
           "  " + pad(r.profile || "-", W.profile) +
           "  " + pad(r.provider || "-", W.provider) +
-          "  " + pad(r.source === "9router" ? "9router" : "Desktop", W.source) +
+          // Compare against the STORED value, show the product name.
+          "  " + pad(r.source === "9router" ? "Dakara Router" : "Desktop", W.source) +
           keys
             .map((k) => {
               const w = r.windows.find((x) => x.key === k);

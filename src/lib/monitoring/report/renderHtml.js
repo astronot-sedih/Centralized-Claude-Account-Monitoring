@@ -130,7 +130,7 @@ function td(html, align = "left", extra = "") {
 function sourceChip(source) {
   const proxied = source === "9router";
   const sev = proxied ? SEV_TOKENS.low : SEV_TOKENS.info;
-  const label = proxied ? "9router" : "Desktop";
+  const label = proxied ? "Dakara Router" : "Desktop";
   return `<span style="display:inline-block;font-family:${T.fontLabel};font-size:10px;padding:2px 6px;border-radius:6px;background:${sev.fill};border:1px solid ${sev.line};color:${sev.text};white-space:nowrap">${esc(label)}</span>`;
 }
 
@@ -158,7 +158,7 @@ export function renderReportHtml(report) {
     s.atRiskCount > 0
       ? `${s.atRiskCount} akun di atas 90% kuota`
       : "Tidak ada akun mendekati limit",
-    `${s.measuredCount || 0} akun terukur lewat 9router, ${s.unmeasuredCount || 0} hanya kuota.` +
+    `${s.measuredCount || 0} akun terukur lewat Dakara Router, ${s.unmeasuredCount || 0} hanya kuota.` +
       (s.limitDaysThisWeek ? ` Limit tercapai pada ${s.limitDaysThisWeek} hari dalam 7 hari terakhir.` : "") +
       (s.failedReadCount ? ` ${s.failedReadCount} akun gagal dibaca.` : "")
   );

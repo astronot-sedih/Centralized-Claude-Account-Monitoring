@@ -58,7 +58,7 @@ describe("buildReport summary", () => {
   it("always carries the three footnotes the spec fixes", () => {
     const r = buildReport({ ...base, snapshots: [snap("a", 10)] });
     const all = r.footnotes.join(" ");
-    expect(all).toContain("9router");          // token/cost only for proxied accounts
+    expect(all).toContain("Dakara Router");    // token/cost only for proxied accounts
     expect(all).toContain("tak terukur");      // what it means
     expect(all).toContain("API");              // cost is an API-price equivalent
     expect(r.footnotes.length).toBeGreaterThanOrEqual(3);

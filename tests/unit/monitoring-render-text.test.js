@@ -27,7 +27,9 @@ describe("renderReportText", () => {
   });
 
   it("carries the footnotes and the coverage line", () => {
-    expect(text).toContain("9router");
+    expect(text).toContain("Dakara Router");
+    // The product name must not arrive clipped by the column width.
+    expect(text).not.toMatch(/Dakara\s*…/);
     expect(text).toMatch(/cakupan|coverage/i);
   });
 
