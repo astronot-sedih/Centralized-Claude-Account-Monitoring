@@ -155,7 +155,7 @@ export function renderReportText(report) {
     out.push("-".repeat(h3.length));
     for (const m of act.members || []) {
       out.push(
-        pad(m.name || m.email || "-", W3.who) +
+        pad(m.email || m.name || "-", W3.who) +
           "  " + pad(fmtNum(m.chats), W3.chat, true) +
           "  " + pad(fmtNum(m.chatMessages), W3.msg, true) +
           "  " + pad(fmtNum(m.coworkSessions), W3.cw, true) +

@@ -123,11 +123,12 @@ export default function TeamActivityCard() {
             <tbody>
               {members.map((m) => (
                 <tr key={m.email || m.name} className="border-b border-black/5 dark:border-white/5">
+                  {/* Email only. Display names are whatever each person set
+                      on their own account — several are a first name or two
+                      letters, which does not identify anyone in a report the
+                      whole team reads. The email does. */}
                   <Td>
-                    <div className="font-semibold">{m.name || m.email}</div>
-                    {m.name && m.email ? (
-                      <div className="text-[10.5px] opacity-60">{m.email}</div>
-                    ) : null}
+                    <div className="font-semibold">{m.email || m.name || "–"}</div>
                   </Td>
                   <Td right mono>{nf(m.chats)}</Td>
                   <Td right mono>{nf(m.chatMessages)}</Td>

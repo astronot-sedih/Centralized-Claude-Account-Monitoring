@@ -360,3 +360,27 @@ describe("fetchActivityUsers sort key", () => {
     expect(seen).not.toContain("message_count");
   });
 });
+
+describe("adoption table identifies members by email", () => {
+  it("renders the email, not the display name", async () => {
+    // Display names are whatever each person set on their own account —
+    // several are a first name or two letters, which does not identify anyone
+    // in a report the whole team reads.
+    const { renderReportText } = await import("../../src/lib/monitoring/report/renderText.js");
+    const out = renderReportText({
+      dateKey: "2026-10-29", rows: [], summary: {}, coverage: {},
+      claudeWeb: {
+        activity: {
+          overview: {
+            utilization: { value: 90 }, dau: { value: 8 }, wau: { value: 9 },
+            mau: { value: 9 }, totalMembers: 10,
+          },
+          members: [{ name: "pc", email: "putri@dakaradaksadira.co.id", chats: 27, chatMessages: 261 }],
+          dataAsOf: "2026-10-27",
+        },
+      },
+    });
+    expect(out).toMatch(/putri@dakaradaksadira\.co\.id/);
+    expect(out).not.toMatch(/\bpc\b/);
+  });
+});

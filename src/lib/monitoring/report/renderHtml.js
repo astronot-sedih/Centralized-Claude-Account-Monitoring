@@ -230,7 +230,7 @@ export function renderReportHtml(report) {
         const rows3 = (act.members || [])
           .map(
             (m) =>
-              `<tr>${td(`<span style="font-weight:600">${esc(m.name || m.email || "-")}</span>`)}${td(
+              `<tr>${td(`<span style="font-weight:600">${esc(m.email || m.name || "-")}</span>`)}${td(
                 esc(fmtNum(m.chats)),
                 "right"
               )}${td(esc(fmtNum(m.chatMessages)), "right")}${td(esc(fmtNum(m.coworkSessions)), "right")}${td(
