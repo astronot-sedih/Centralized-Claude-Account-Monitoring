@@ -10,6 +10,7 @@
 // block images, and a colourblind reader must get the same table.
 
 import { SEV_TOKENS } from "../tokens.js";
+import { summaryNarrative, readingGuide, limitations } from "./narrative.js";
 
 // Dakara light-theme surface tokens, flattened. Translucent values (--line
 // family is rgba over an unknown client background) are composited on white.
@@ -356,6 +357,49 @@ ${chart(web.series, { label: "Biaya harian (estimasi setara API)", fmt: (v) => f
       ? banner("medium", "Data claude.ai tidak terbaca", String(web.error))
       : "";
 
+  // The lead paragraph, directly under the header: a reader who stops after
+  // two sentences should still leave with the finding, not just the tables.
+  const lead = (() => {
+    const lines = summaryNarrative(report);
+    if (!lines.length) return "";
+    return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin:0 0 14px 0">
+  <tr><td style="background:${T.surface};border:1px solid ${T.line};border-radius:${T.radius};padding:12px 14px;font-family:${T.fontBody};font-size:13px;line-height:1.65;color:${T.ink}">
+    ${lines.map((l) => `<div style="padding:2px 0">${esc(l)}</div>`).join("")}
+  </td></tr>
+</table>`;
+  })();
+
+  // How to read it, and what it does not claim. After the tables, because it
+  // is reference the reader returns to rather than the headline.
+  const guide = (() => {
+    const sections = readingGuide(report);
+    const limits = limitations(report);
+    if (!sections.length && !limits.length) return "";
+
+    const blocks = sections
+      .map(
+        (g) => `<div style="margin:0 0 10px 0">
+      <div style="font-family:${T.fontLabel};font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:${T.muted};padding-bottom:3px">${esc(g.heading)}</div>
+      ${g.lines.map((l) => `<div style="padding:1px 0 1px 10px;border-left:2px solid ${T.line}">${esc(l)}</div>`).join("")}
+    </div>`
+      )
+      .join("");
+
+    const limitBlock = limits.length
+      ? `<div style="margin:12px 0 0 0">
+      <div style="font-family:${T.fontLabel};font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:${SEV_TOKENS.medium.text};padding-bottom:3px">Yang laporan ini belum bisa jawab</div>
+      ${limits.map((l) => `<div style="padding:1px 0 1px 10px;border-left:2px solid ${SEV_TOKENS.medium.line}">${esc(l)}</div>`).join("")}
+    </div>`
+      : "";
+
+    return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin:18px 0 0 0">
+  <tr><td style="background:${T.surface2};border:1px solid ${T.line};border-radius:${T.radius};padding:12px 14px;font-family:${T.fontBody};font-size:12px;line-height:1.6;color:${T.ink2}">
+    <div style="font-family:${T.fontDisplay};font-size:13px;font-weight:600;color:${T.ink};padding-bottom:8px">Cara membaca laporan ini</div>
+    ${blocks}${limitBlock}
+  </td></tr>
+</table>`;
+  })();
+
   const notes = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin:14px 0 0 0">
   <tr><td style="background:${T.surface2};border-left:3px solid ${T.line};border-radius:4px;padding:10px 12px;font-family:${T.fontBody};font-size:11px;line-height:1.6;color:${T.ink2}">
     ${(report?.footnotes || []).map((f) => `<div style="padding:2px 0">${esc(f)}</div>`).join("")}
@@ -368,11 +412,13 @@ ${chart(web.series, { label: "Biaya harian (estimasi setara API)", fmt: (v) => f
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;max-width:860px">
   <tr><td>
 ${header}
+${lead}
 ${summary}
 ${coverage}
 ${table}
 ${actBlock}
 ${webBlock}
+${guide}
 ${notes}
   </td></tr>
 </table>

@@ -5,6 +5,8 @@
 // labels are shared with renderHtml.js via WINDOW_LABELS in buildReport.js,
 // so the two parts of one email cannot disagree.
 
+import { summaryNarrative, readingGuide, limitations } from "./narrative.js";
+
 const NA = "tak terukur";
 const NO_WINDOW = "tidak ada";
 
@@ -78,6 +80,31 @@ function chartLines(points, { label, fmt = (v) => String(v), limit = 14, width =
   return out;
 }
 
+/**
+ * Wraps prose to `width`, since the plain-text part is read in clients that
+ * do not reflow and a 200-column sentence becomes one unreadable line.
+ */
+function wrap(text, width = 76, indent = "  ", hangIndent = null) {
+  // Only the FIRST line carries the bullet; continuations align under it.
+  // Repeating "- " on every wrapped line turns one point into several, which
+  // is how a caveat gets read as a list of unrelated claims.
+  const hang = hangIndent ?? " ".repeat(indent.length);
+  const words = String(text || "").split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = "";
+  const prefix = () => (lines.length === 0 ? indent : hang);
+  for (const w of words) {
+    if (line && (prefix() + line + " " + w).length > width) {
+      lines.push(prefix() + line);
+      line = w;
+    } else {
+      line = line ? `${line} ${w}` : w;
+    }
+  }
+  if (line) lines.push(prefix() + line);
+  return lines;
+}
+
 function pad(value, width, right = false) {
   const s = String(value ?? "");
   const t = s.length > width ? s.slice(0, width - 1) + "…" : s;
@@ -106,6 +133,14 @@ export function renderReportText(report) {
   out.push("LAPORAN USAGE CLAUDE TIM");
   out.push(`Tanggal: ${report?.dateKey || "-"}   Akun: ${rows.length}`);
   out.push("");
+
+  // The finding, up front: a reader who stops after two sentences should
+  // still leave with it rather than with only a table.
+  const lead = summaryNarrative(report);
+  if (lead.length) {
+    for (const line of lead) out.push(...wrap(line));
+    out.push("");
+  }
 
   out.push(
     s.atRiskCount > 0
@@ -238,6 +273,21 @@ export function renderReportText(report) {
   } else if (web?.error) {
     out.push("");
     out.push(`PEMAKAIAN LEWAT WEB & DESKTOP: tidak terbaca — ${web.error}`);
+  }
+
+  const guide = readingGuide(report);
+  const limits = limitations(report);
+  if (guide.length || limits.length) {
+    out.push("");
+    out.push("CARA MEMBACA LAPORAN INI");
+    for (const g of guide) {
+      out.push(`  ${g.heading}`);
+      for (const l of g.lines) out.push(...wrap(l, 74, "    - "));
+    }
+    if (limits.length) {
+      out.push("  Yang laporan ini belum bisa jawab");
+      for (const l of limits) out.push(...wrap(l, 74, "    - "));
+    }
   }
 
   out.push("");
