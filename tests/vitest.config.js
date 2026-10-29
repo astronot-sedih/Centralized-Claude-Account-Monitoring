@@ -8,6 +8,10 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: true,
+    // Give every test file its own database. Without it, a test that touches
+    // the db layer writes to the user's REAL one, which the running dashboard
+    // holds open — the source of the intermittent "database is locked".
+    setupFiles: [resolve(__dirname, "setup-data-dir.js")],
     include: ["**/*.test.js"],
     // Don't scan into git worktrees nested under .claude/ — they carry their
     // own copies of the test files but lack an installed node_modules (open-sse,

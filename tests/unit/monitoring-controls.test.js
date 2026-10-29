@@ -57,3 +57,16 @@ describe("key PUT accepts a pin", () => {
     expect(src).toMatch(/pinnedConnectionId[\s\S]{0,400}(test\(|null|trim)/);
   });
 });
+
+describe("tests do not touch the real database", () => {
+  it("resolves DATA_DIR to a temp directory, not the user's", async () => {
+    // Without this, getAdapter() opens %APPDATA%/9router/db/data.sqlite — the
+    // same file the running dashboard holds open. That produced intermittent
+    // "SqliteError: database is locked", and meant every seeded row was being
+    // written into live data.
+    const { DATA_DIR } = await import("../../src/lib/dataDir.js");
+    const os = await import("node:os");
+    expect(DATA_DIR.startsWith(os.tmpdir())).toBe(true);
+    expect(DATA_DIR).not.toMatch(/\.9router$|[\/]9router$/);
+  });
+});
