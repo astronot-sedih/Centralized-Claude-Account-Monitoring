@@ -1,3 +1,10 @@
+/* VENDOR CHANGE: body wrapped in @layer ds.
+   Tailwind v4 emits its utilities inside @layer utilities, and UNLAYERED
+   css beats every layer regardless of specificity. Unlayered, this sheet's
+   bare h1/h2/p/code rules overrode Tailwind text-size and text-color on
+   every page — text-3xl rendered at 22px, text-amber-400 rendered grey,
+   and every <p> picked up max-width:760px. */
+@layer ds {
 /* Dakara DS v2.0 — components.css: kelas .ds-* + lapisan identitas Dakara (akhir file). Butuh colors_and_type.css. */
 /* ===== components.css ===== */
 /* Dakara DS v2.0 — component layer (.ds-*). Needs colors_and_type.css first. */
@@ -2129,3 +2136,5 @@ html[data-ds-privacy="hidden"] [data-ds-sensitive] { filter: blur(14px); transit
 
 /* Tekan = warna menggelap 15% (primary-active), tanpa skala/menyusut — Dakara */
 .ds-btn:active:not(:disabled):not(.ds-btn--loading), .ds-iconbtn:active:not(:disabled):not(.x) { scale: 1; }
+
+}

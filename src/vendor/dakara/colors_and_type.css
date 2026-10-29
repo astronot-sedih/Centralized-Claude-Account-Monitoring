@@ -1,3 +1,10 @@
+/* VENDOR CHANGE: body wrapped in @layer ds.
+   Tailwind v4 emits its utilities inside @layer utilities, and UNLAYERED
+   css beats every layer regardless of specificity. Unlayered, this sheet's
+   bare h1/h2/p/code rules overrode Tailwind text-size and text-color on
+   every page — text-3xl rendered at 22px, text-amber-400 rendered grey,
+   and every <p> picked up max-width:760px. */
+@layer ds {
 /* VENDORED from dakara-ds/colors_and_type.css.
    Two upstream @import lines removed:
      - the Google Fonts URL — the families load via next/font in layout.js
@@ -257,3 +264,5 @@ input[type="range"].ds-range::-webkit-slider-thumb { -webkit-appearance:none; wi
 input[type="range"].ds-range::-moz-range-thumb { width:16px; height:16px; border-radius:999px; border:2px solid var(--surface); background:var(--primary); cursor:grab; }
 @keyframes ds-in { from { opacity:0; transform:scale(0.92); } to { opacity:1; transform:scale(1); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration:0ms !important; animation-duration:0ms !important; } }
+
+}

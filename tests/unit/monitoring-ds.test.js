@@ -99,3 +99,43 @@ describe("theme-dependent chrome follows the theme", () => {
     expect(sel).toMatch(/appearance: none/);
   });
 });
+
+describe("no hardcoded light-only colours on dark chrome", () => {
+  it("has no !important white/black overrides on buttons", () => {
+    // "Add OpenAI Compatible" forced !bg-white !text-black to carry the
+    // OpenAI brand. On Dakara's near-black canvas that is a glaring white
+    // slab that fights the design system, and !important means no token can
+    // correct it.
+    const src = read("../src/app/(dashboard)/dashboard/providers/page.js");
+    expect(src).not.toMatch(/!bg-white/);
+    expect(src).not.toMatch(/!text-black/);
+  });
+});
+
+describe("Dakara sheets sit below Tailwind's utilities", () => {
+  it("wraps each vendored sheet in @layer ds", () => {
+    // UNLAYERED css beats every cascade layer regardless of specificity, and
+    // Tailwind v4 emits its utilities inside @layer utilities. Unlayered, the
+    // DS's bare h1/p/code rules overrode text-size and text-color app-wide:
+    // measured on /login, text-3xl rendered 22px and text-amber-400 rendered
+    // grey — a security warning that lost its warning colour.
+    for (const f of ["tokens.css", "colors_and_type.css", "components.css"]) {
+      expect(read(`../src/vendor/dakara/${f}`), `${f} must be layered`)
+        .toMatch(/@layer ds \{/);
+    }
+  });
+
+  it("declares the layer order with ds below utilities", () => {
+    const g = read("../src/app/globals.css");
+    const order = g.match(/@layer ([a-z, ]+);/);
+    expect(order, "layer order must be declared").not.toBeNull();
+    const names = order[1].split(",").map((s) => s.trim());
+    expect(names.indexOf("ds")).toBeLessThan(names.indexOf("utilities"));
+  });
+
+  it("clears the DS prose cap, which is wrong for dashboard UI", () => {
+    // p { max-width: 760px } wrapped paragraphs early inside cards and tables.
+    // No Tailwind utility contests max-width, so it needs clearing explicitly.
+    expect(read("../src/app/globals.css")).toMatch(/p \{ max-width: none; \}/);
+  });
+});

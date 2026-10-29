@@ -1,6 +1,12 @@
 /* source() sets scan base to src/ for both webpack + Turbopack; auto-detection still skips binaries + gitignore */
 @import "tailwindcss" source("../../");
 
+/* Layer order: the Dakara sheets sit BELOW Tailwind's utilities so a
+   text-xs / text-amber-400 on a <p> beats the DS's bare element rule.
+   Declared here because the order is set by first mention, and Tailwind's
+   own layers are declared by the import above. */
+@layer ds, theme, base, components, utilities;
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 
@@ -122,6 +128,12 @@ body {
 }
 
 h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); }
+
+/* The DS caps every <p> and .prose at --layout-prose-max (760px). That is
+   right for an article and wrong for dashboard UI, where paragraphs sit in
+   cards and tables and were silently wrapping early with dead space beside
+   them. No Tailwind utility contests max-width here, so it is cleared. */
+p { max-width: none; }
 
 /* ============================================================
    Fix native select dropdowns in dark mode

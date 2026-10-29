@@ -1,6 +1,13 @@
 /* Dakara DS — generated from tokens.json */
 @font-face{font-family:'Phosphor';src:url('fonts/Phosphor.woff2') format('woff2');}
 @font-face{font-family:'Phosphor-Fill';src:url('fonts/Phosphor-Fill.woff2') format('woff2');}
+/* VENDOR CHANGE: body wrapped in @layer ds.
+   Tailwind v4 emits its utilities inside @layer utilities, and UNLAYERED
+   css beats every layer regardless of specificity. Unlayered, this sheet's
+   bare h1/h2/p/code rules overrode Tailwind text-size and text-color on
+   every page — text-3xl rendered at 22px, text-amber-400 rendered grey,
+   and every <p> picked up max-width:760px. */
+@layer ds {
 :root, [data-theme="dark"], .dark {
   --bg: #080909;
   --surface: #0e0f10;
@@ -752,4 +759,5 @@
   --leading-snug: 1.25;
   --leading-normal: 1.5;
   --leading-relaxed: 1.7;
+}
 }
