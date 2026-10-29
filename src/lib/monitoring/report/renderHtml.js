@@ -171,7 +171,7 @@ export function renderReportHtml(report) {
       )
     : `<div style="font-family:${T.fontLabel};font-size:10px;color:${T.muted};margin:0 0 10px 0">Cakupan sampling: ${esc(c.samplesTaken || 0)}/${esc(c.samplesExpected || 0)} sampel.</div>`;
 
-  const head = `<tr>${th("Akun")}${th("Sumber")}${keys
+  const head = `<tr>${th("Akun")}${th("Profil")}${th("Provider")}${th("Sumber")}${keys
     .map((k) => th(rows.find((r) => r.windows.some((w) => w.key === k))?.windows.find((w) => w.key === k)?.label || k))
     .join("")}${th("Units", "right")}${th("Est. biaya API (USD)", "right")}${th("Reset")}</tr>`;
 
@@ -185,7 +185,11 @@ export function renderReportHtml(report) {
           const failed = !r.ok
             ? `<div style="color:${SEV_TOKENS.critical.text};font-size:10.5px;padding-top:2px">Gagal dibaca: ${esc(r.errorMessage || "tidak diketahui")}</div>`
             : "";
-          return `<tr>${td(name + failed)}${td(sourceChip(r.source))}${keys
+          // A dash, not a blank, for an unclaimed account: a blank cell in an
+          // email reads as missing data rather than "nobody claimed this".
+          const small = (v) =>
+            `<span style="font-family:${T.fontLabel};font-size:11px;color:${T.ink2}">${esc(v || "–")}</span>`;
+          return `<tr>${td(name + failed)}${td(small(r.profile))}${td(small(r.provider))}${td(sourceChip(r.source))}${keys
             .map((k) => td(windowCell(r, k)))
             .join("")}${td(r.units == null ? NA : esc(fmtNum(r.units)), "right", `font-family:${T.fontDisplay};font-weight:600`)}${td(
             r.costUsd == null ? NA : esc(fmtUsd(r.costUsd)),

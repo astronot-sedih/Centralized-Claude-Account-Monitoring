@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import useProfileStore from "@/store/profileStore";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import QuotaTable from "./QuotaTable";
@@ -155,6 +156,15 @@ function formatTimeRemaining(value) {
 
 export default function ProviderLimits() {
   const { copied, copy } = useCopyToClipboard();
+  // The active workspace comes from the header switcher, so one control drives
+  // Providers, Usage and this page. The server does the filtering, so the
+  // pagination counts stay honest.
+  const {
+    activeProfileId,
+    profiles,
+    load: loadProfiles,
+    loaded: profilesLoaded,
+  } = useProfileStore();
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -238,6 +248,9 @@ export default function ProviderLimits() {
         if (providerFilter !== "all") {
           params.set("provider", providerFilter);
         }
+        if (activeProfileId) {
+          params.set("profileId", activeProfileId);
+        }
 
         const response = await fetch(
           `/api/providers/client?${params.toString()}`,
@@ -264,7 +277,7 @@ export default function ProviderLimits() {
         return [];
       }
     },
-    [accountFilter, expiringFirst, page, pageSize, providerFilter],
+    [accountFilter, activeProfileId, expiringFirst, page, pageSize, providerFilter],
   );
 
   // Fetch quota for a specific connection
@@ -587,6 +600,8 @@ export default function ProviderLimits() {
     initializeData();
   }, [fetchConnections, fetchQuota, page]);
 
+  useEffect(() => { if (!profilesLoaded) loadProfiles(); }, [profilesLoaded, loadProfiles]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const stored = window.localStorage.getItem(AUTO_REFRESH_STORAGE_KEY);
@@ -841,6 +856,16 @@ export default function ProviderLimits() {
 
   const selectedProviderLabel =
     providerFilter === "all" ? "All providers" : providerLabel(providerFilter);
+  const activeProfileName =
+    profiles.find((p) => p.id === activeProfileId)?.name || null;
+  // Which accounts these quota figures cover. Without it an empty workspace
+  // is indistinguishable from a broken page or a disconnected account.
+  const workspaceNote = activeProfileName ? (
+    <p className="text-[11px]" style={{ color: "var(--sev-info-text)" }}>
+      Workspace &quot;{activeProfileName}&quot;: {totals.eligibleConnections} akun
+      {" "}· monitoring &amp; laporan harian tetap memakai semua akun
+    </p>
+  ) : null;
   const hasEligibleConnections = totals.eligibleConnections > 0;
   const hasVisibleConnections = sortedConnections.length > 0;
   const emptyState = getConnectionsEmptyMessage(
@@ -854,20 +879,29 @@ export default function ProviderLimits() {
 
   if (!connectionsLoading && !hasEligibleConnections) {
     return (
-      <Card padding="lg">
-        <div className="text-center py-12">
-          <span className="material-symbols-outlined text-[64px] text-text-muted opacity-20">
-            cloud_off
-          </span>
-          <h3 className="mt-4 text-lg font-semibold text-text-primary">
-            No Providers Connected
-          </h3>
-          <p className="mt-2 text-sm text-text-muted max-w-md mx-auto">
-            Connect to providers with OAuth to track your API quota limits and
-            usage.
-          </p>
-        </div>
-      </Card>
+      <div className="space-y-3">
+        {workspaceNote}
+        <Card padding="lg">
+          <div className="text-center py-12">
+            <span className="material-symbols-outlined text-[64px] text-text-muted opacity-20">
+              cloud_off
+            </span>
+            <h3 className="mt-4 text-lg font-semibold text-text-primary">
+              {activeProfileName
+                ? `Workspace "${activeProfileName}" belum punya akun`
+                : "No Providers Connected"}
+            </h3>
+            {/* An empty workspace is a filter result, not a missing setup —
+                telling the user to connect OAuth here would send them to
+                re-add an account they already have in another workspace. */}
+            <p className="mt-2 text-sm text-text-muted max-w-md mx-auto">
+              {activeProfileName
+                ? "Klaim akun untuk workspace ini di halaman Providers, atau pilih Semua workspace."
+                : "Connect to providers with OAuth to track your API quota limits and usage."}
+            </p>
+          </div>
+        </Card>
+      </div>
     );
   }
 
@@ -891,6 +925,7 @@ export default function ProviderLimits() {
 
   return (
     <div className="space-y-6">
+      {workspaceNote}
       {/* Header Controls */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
         <div className="flex flex-wrap items-center gap-1.5">

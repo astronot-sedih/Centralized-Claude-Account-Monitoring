@@ -39,6 +39,8 @@ export default function ReportTable({ rows = [] }) {
         <thead>
           <tr className="border-b-2 border-black/10 dark:border-white/10">
             <Th>Akun</Th>
+            <Th>Profil</Th>
+            <Th>Provider</Th>
             <Th>Sumber</Th>
             {cols.map((c) => <Th key={c.key}>{c.label}</Th>)}
             <Th right>Units</Th>
@@ -60,6 +62,14 @@ export default function ReportTable({ rows = [] }) {
                   </div>
                 ) : null}
               </Td>
+              {/* An account nobody has claimed shows a dash, not a blank:
+                  a blank cell reads as missing data rather than "unclaimed". */}
+              <Td>
+                {r.profile
+                  ? <span className="text-[11px]">{r.profile}</span>
+                  : <span className="text-[11px] opacity-40">–</span>}
+              </Td>
+              <Td><span className="text-[11px] opacity-70">{r.provider || "–"}</span></Td>
               <Td><SourceChip source={r.source} /></Td>
               {cols.map((c) => {
                 const w = r.windows.find((x) => x.key === c.key);

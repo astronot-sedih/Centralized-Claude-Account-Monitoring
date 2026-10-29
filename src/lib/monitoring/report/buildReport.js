@@ -101,7 +101,15 @@ function newestPerConnection(snapshots) {
  * @returns {Array<object>} one row per connection
  */
 export function buildReportRows(input) {
-  const { snapshots = [], usageByConnection = {}, pricing = {} } = input || {};
+  const {
+    snapshots = [],
+    usageByConnection = {},
+    pricing = {},
+    // connectionId -> workspace name. LABELS the row, never filters it: the
+    // report is the case for the whole team, so narrowing it to a workspace
+    // would understate it — the opposite of its purpose.
+    profileNames = {},
+  } = input || {};
 
   return newestPerConnection(snapshots).map((snap) => {
     // Only windows the API actually returned. Never a fixed list: a fabricated
@@ -142,6 +150,8 @@ export function buildReportRows(input) {
       connectionId: snap.connectionId,
       account: snap.accountName || snap.name || snap.accountEmail || snap.connectionId,
       email: snap.accountEmail || null,
+      provider: snap.provider || null,
+      profile: profileNames[snap.connectionId] || null,
       plan: snap.plan || null,
       source: snap.source || null,
       windows,

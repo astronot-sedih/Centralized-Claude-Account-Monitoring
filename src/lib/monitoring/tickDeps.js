@@ -8,6 +8,7 @@ import { getMeta, setMeta } from "@/lib/db/helpers/metaStore.js";
 import { getSnapshotsForDate } from "@/lib/db/repos/quotaSnapshotsRepo.js";
 import { getUsageHistory } from "@/lib/db/repos/usageRepo.js";
 import { getPricing } from "@/lib/db/repos/pricingRepo.js";
+import { listProfiles, getConnectionProfileMap } from "@/lib/db/repos/profilesRepo.js";
 import { buildReport } from "./report/buildReport.js";
 import { collectOnce } from "./quotaCollector.js";
 import { pruneSnapshotsOlderThan } from "@/lib/db/repos/quotaSnapshotsRepo.js";
@@ -54,6 +55,24 @@ export async function assembleReport(dateKey, timeZone) {
 
   const pricing = await getPricing().catch(() => ({}));
 
+  // Workspace names, for the report's Profil column. A LABEL only — every
+  // account stays in the report whichever workspace owns it, because the
+  // report is the case for the whole team.
+  const profileNames = {};
+  try {
+    const [profiles, assignments] = await Promise.all([
+      listProfiles(),
+      getConnectionProfileMap(),
+    ]);
+    const nameById = Object.fromEntries(profiles.map((p) => [p.id, p.name]));
+    for (const [connectionId, profileId] of Object.entries(assignments)) {
+      if (nameById[profileId]) profileNames[connectionId] = nameById[profileId];
+    }
+  } catch {
+    // An unnamed account is still reportable; a failed lookup must not take
+    // the whole report down.
+  }
+
   // samplesExpected = one sample per hour of the day, which is what the
   // sampler aims for; coverage below that is reported, never hidden.
   return buildReport({
@@ -63,6 +82,7 @@ export async function assembleReport(dateKey, timeZone) {
     weekSnapshots,
     usageByConnection,
     pricing,
+    profileNames,
   });
 }
 

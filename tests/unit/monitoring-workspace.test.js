@@ -119,6 +119,18 @@ describe("monitoring stays global", () => {
       .not.toMatch(/useProfileStore|activeProfileId/);
   });
 
+  it("the report assembler only NAMES workspaces, never filters by them", () => {
+    // tickDeps reads the profile map for the report's Profil column. That is
+    // a label: the moment it narrowed the snapshot set, the report would
+    // understate the team and the upgrade case built on it.
+    const src = read("../src/lib/monitoring/tickDeps.js");
+    expect(src).toMatch(/profileNames/);
+    expect(src).not.toMatch(/scopeToProfile|activeProfile/);
+    // No snapshot/usage collection filtered by a profile.
+    expect(src).not.toMatch(/getSnapshotsForDate\([^)]*profile/i);
+    expect(src).not.toMatch(/getUsageHistory\([^)]*profileId/i);
+  });
+
   it("the report API does not take a profile parameter", () => {
     expect(read("../src/app/api/monitoring/report/route.js"))
       .not.toMatch(/profileId|activeProfile/);

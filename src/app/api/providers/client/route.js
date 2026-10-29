@@ -80,13 +80,25 @@ export async function GET(request) {
 
     const { searchParams } = new URL(request.url);
     const provider = searchParams.get("provider") || "all";
+    // The active workspace. Filtering here rather than in the component keeps
+    // the pagination counts honest — a page sliced server-side and then
+    // filtered client-side shows "20 of 48" above three rows.
+    const profileId = searchParams.get("profileId") || "";
     const accountStatus = searchParams.get("accountStatus") || "all";
     const sort = searchParams.get("sort") || "priority";
     const page = parsePositiveInt(searchParams.get("page"), 1);
     const pageSize = Math.min(parsePositiveInt(searchParams.get("pageSize"), DEFAULT_PAGE_SIZE), MAX_PAGE_SIZE);
 
     const allConnections = await getProviderConnections();
-    const eligibleConnections = allConnections.filter(isUsageEligible);
+    // A connection nobody has claimed stays visible in every workspace;
+    // hiding it would make existing setup look deleted.
+    const inWorkspace = profileId
+      ? allConnections.filter((c) => {
+          const owner = c?.providerSpecificData?.profileId || null;
+          return !owner || owner === profileId;
+        })
+      : allConnections;
+    const eligibleConnections = inWorkspace.filter(isUsageEligible);
     const providerOptions = Array.from(new Set(eligibleConnections.map((conn) => conn.provider))).sort();
 
     const providerFilteredConnections = eligibleConnections.filter((conn) => (

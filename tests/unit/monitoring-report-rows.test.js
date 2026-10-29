@@ -158,3 +158,29 @@ describe("buildReportRows — reset time comes from the binding window", () => {
     expect(row.resetAt).toBe("2026-10-28T16:00:00Z");
   });
 });
+
+describe("profile and provider columns", () => {
+  it("labels a row with its workspace and provider", () => {
+    const rows = buildReportRows({
+      snapshots: [snap("alice", { provider: "claude" })],
+      profileNames: { alice: "Rafli" },
+    });
+    expect(rows[0].profile).toBe("Rafli");
+    expect(rows[0].provider).toBe("claude");
+  });
+
+  it("leaves an unclaimed account's profile null rather than guessing", () => {
+    const rows = buildReportRows({ snapshots: [snap("bob", { provider: "claude" })] });
+    expect(rows[0].profile).toBe(null);
+  });
+
+  it("still reports accounts outside the named workspaces", () => {
+    // The report is the case for the WHOLE team. A profile map that covers
+    // only some accounts must label those and keep the rest, never filter.
+    const rows = buildReportRows({
+      snapshots: [snap("alice"), snap("bob")],
+      profileNames: { alice: "Rafli" },
+    });
+    expect(rows.map((r) => r.connectionId).sort()).toEqual(["alice", "bob"]);
+  });
+});

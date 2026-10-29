@@ -66,7 +66,7 @@ export function renderReportText(report) {
   // Window columns size to their widest label (per-model names like
   // "Mingguan opus 7h" overflow a fixed 12), with a floor for the values.
   const windowWidth = Math.max(13, ...keys.map((k) => labelOf(rows, k).length));
-  const W = { account: 26, source: 8, window: windowWidth, units: 12, cost: 12, reset: 7 };
+  const W = { account: 26, profile: 10, provider: 9, source: 8, window: windowWidth, units: 12, cost: 12, reset: 7 };
 
   const out = [];
   out.push("LAPORAN USAGE CLAUDE TIM");
@@ -96,6 +96,8 @@ export function renderReportText(report) {
 
   const header =
     pad("Akun", W.account) +
+    "  " + pad("Profil", W.profile) +
+    "  " + pad("Provider", W.provider) +
     "  " + pad("Sumber", W.source) +
     keys.map((k) => "  " + pad(labelOf(rows, k), W.window)).join("") +
     "  " + pad("Units", W.units, true) +
@@ -110,6 +112,8 @@ export function renderReportText(report) {
     for (const r of rows) {
       out.push(
         pad(r.email || r.account, W.account) +
+          "  " + pad(r.profile || "-", W.profile) +
+          "  " + pad(r.provider || "-", W.provider) +
           "  " + pad(r.source === "9router" ? "9router" : "Desktop", W.source) +
           keys
             .map((k) => {
