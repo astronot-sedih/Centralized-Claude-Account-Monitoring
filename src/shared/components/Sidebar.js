@@ -17,26 +17,39 @@ const VISIBLE_MEDIA_KINDS = ["embedding", "image", "video", "tts", "stt", "syste
 // Combined entry: webSearch + webFetch share one page at /dashboard/media-providers/web
 const COMBINED_WEB_ITEM = { id: "web", label: "Web Fetch & Search", icon: "travel_explore", href: "/dashboard/media-providers/web" };
 
+// The System block (Media Providers accordion + systemItems) is routing and
+// media tooling, not monitoring. Flagged off rather than deleted: the markup
+// stays intact, the routes keep working, and restoring it is this one line.
+const SHOW_SYSTEM_SECTION = false;
+
+// Scoped to monitoring and reporting. The pages below are HIDDEN, not
+// deleted: their routes still work, several share components with the pages
+// we keep, and restoring one is a one-line change.
 const navItems = [
-  { href: "/dashboard/endpoint", label: "Endpoint & Key", icon: "api" },
+  { href: "/dashboard/monitoring", label: "Monitoring", icon: "monitoring" },
   { href: "/dashboard/providers", label: "Providers", icon: "dns" },
-  // { href: "/dashboard/basic-chat", label: "Basic Chat", icon: "chat" }, // Hidden
-  { href: "/dashboard/combos", label: "Combo & Vision Adapter", icon: "layers" },
   { href: "/dashboard/usage", label: "Usage", icon: "bar_chart" },
   { href: "/dashboard/quota", label: "Quota Tracker", icon: "data_usage" },
-  { href: "/dashboard/token-saver", label: "Token Saver", icon: "savings" },
+  // Keys live here, and so does per-key account pinning: without a pin a
+  // teammate's traffic lands on whichever account selection picks, and every
+  // per-person figure in the report names the wrong person.
+  { href: "/dashboard/endpoint", label: "Endpoint & Key", icon: "api" },
+  // Routing/tooling pages, not part of monitoring:
+  // { href: "/dashboard/basic-chat", label: "Basic Chat", icon: "chat" },
+  // { href: "/dashboard/combos", label: "Combo & Vision Adapter", icon: "layers" },
+  // { href: "/dashboard/token-saver", label: "Token Saver", icon: "savings" },
   // { href: "/dashboard/pxpipe", label: "PXPIPE", icon: "image" },
-  { href: "/dashboard/cli-tools", label: "CLI Tools", icon: "terminal" },
+  // { href: "/dashboard/cli-tools", label: "CLI Tools", icon: "terminal" },
 ];
 
 const debugItems = [
-  { href: "/dashboard/console-log", label: "Console Log", icon: "terminal" },
-  { href: "/dashboard/translator", label: "Translator", icon: "translate" },
+  // { href: "/dashboard/console-log", label: "Console Log", icon: "terminal" },
+  // { href: "/dashboard/translator", label: "Translator", icon: "translate" },
 ];
 
 const systemItems = [
-  { href: "/dashboard/proxy-pools", label: "Proxy Pools", icon: "lan" },
-  { href: "/dashboard/skills", label: "Skills", icon: "extension" },
+  // { href: "/dashboard/proxy-pools", label: "Proxy Pools", icon: "lan" },
+  // { href: "/dashboard/skills", label: "Skills", icon: "extension" },
 ];
 
 export default function Sidebar({ onClose }) {
@@ -184,6 +197,7 @@ export default function Sidebar({ onClose }) {
           ))}
 
           {/* System section */}
+          {SHOW_SYSTEM_SECTION && (
           <div className="pt-3 mt-2 space-y-0.5">
             <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
               System
@@ -329,28 +343,30 @@ export default function Sidebar({ onClose }) {
               <span className="text-[13px] font-medium">9English</span>
             </a>
 
-            {/* Settings */}
-            <Link
-              href="/dashboard/profile"
-              onClick={onClose}
+          </div>
+          )}
+
+          {/* Settings — outside the System block, which is flagged off above. */}
+          <Link
+            href="/dashboard/profile"
+            onClick={onClose}
+            className={cn(
+              "flex items-center gap-3 px-3 py-1 mt-2 rounded-lg transition-all group",
+              isActive("/dashboard/profile")
+                ? "bg-primary/10 text-primary"
+                : "text-text-muted hover:bg-surface-2 hover:text-text-main"
+            )}
+          >
+            <span
               className={cn(
-                "flex items-center gap-3 px-3 py-1 rounded-lg transition-all group",
-                isActive("/dashboard/profile")
-                  ? "bg-primary/10 text-primary"
-                  : "text-text-muted hover:bg-surface-2 hover:text-text-main"
+                "material-symbols-outlined text-[18px]",
+                isActive("/dashboard/profile") ? "fill-1" : "group-hover:text-primary transition-colors"
               )}
             >
-              <span
-                className={cn(
-                  "material-symbols-outlined text-[18px]",
-                  isActive("/dashboard/profile") ? "fill-1" : "group-hover:text-primary transition-colors"
-                )}
-              >
-                settings
-              </span>
-              <span className="text-[13px] font-medium">Settings</span>
-            </Link>
-          </div>
+              settings
+            </span>
+            <span className="text-[13px] font-medium">Settings</span>
+          </Link>
         </nav>
 
       </aside>
