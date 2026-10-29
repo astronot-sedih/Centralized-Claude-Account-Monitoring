@@ -91,3 +91,36 @@ describe("computeUnits — fixtures built by the real producer", () => {
     expect(computeUnits(t)).toBeCloseTo(24000 * 1.25 + 100 * 5, 2);
   });
 });
+
+describe("computeUnits — the inclusive-input subtraction follows the aliases", () => {
+  it("subtracts cache_read_input_tokens, not only cached_tokens", () => {
+    // The subtraction used a hardcoded key list while the READ used an alias
+    // list, so this spelling was weighted at 0.1x AND left inside the residual
+    // input at 1x — the same double-count the cache_creation fix removed,
+    // surviving on a sibling alias. 5.7x overstated on this shape.
+    expect(computeUnits({ prompt_tokens: 1000, cache_read_input_tokens: 900, output_tokens: 0 }))
+      .toBeCloseTo(100 * 1 + 900 * 0.1, 2);
+  });
+
+  it("subtracts the camelCase cache spellings too", () => {
+    expect(computeUnits({
+      prompt_tokens: 1000, cacheReadInputTokens: 700, cacheCreationInputTokens: 200,
+    })).toBeCloseTo(100 * 1 + 700 * 0.1 + 200 * 1.25, 2);
+  });
+
+  it("never lets the residual input go negative", () => {
+    // Defensive: a malformed record where the subsets exceed the inclusive
+    // total must not produce a negative contribution.
+    expect(computeUnits({ prompt_tokens: 10, cached_tokens: 900 }))
+      .toBeCloseTo(0 + 900 * 0.1, 2);
+  });
+
+  it("does not subtract when the input is the EXCLUSIVE spelling", () => {
+    // input_tokens (Anthropic API) and promptTokens (usageHistory column) are
+    // already cache-exclusive; subtracting there would under-count.
+    expect(computeUnits({ input_tokens: 100, cache_read_input_tokens: 900 }))
+      .toBeCloseTo(100 * 1 + 900 * 0.1, 2);
+    expect(computeUnits({ promptTokens: 100, cacheReadInputTokens: 900 }))
+      .toBeCloseTo(100 * 1 + 900 * 0.1, 2);
+  });
+});

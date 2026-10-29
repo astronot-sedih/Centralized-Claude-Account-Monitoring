@@ -46,10 +46,10 @@ const FIELD_ALIASES = {
 // input and again at its own weight. Measured on 2000 live rows, missing
 // cache_creation alone overstated units by 28.9% — and in the direction that
 // argues for the upgrade this report is meant to adjudicate.
-const INPUT_INCLUDES_CACHE = {
-  input: "prompt_tokens",
-  subsets: ["cached_tokens", "cache_creation_input_tokens"],
-};
+// Only this spelling is inclusive. input_tokens (Anthropic API) and
+// promptTokens (the usageHistory column) are already cache-exclusive, so
+// subtracting there would UNDER-count.
+const INCLUSIVE_INPUT_KEY = "prompt_tokens";
 
 // A missing, null or non-numeric field counts as zero. Returning NaN here would
 // propagate silently into a report figure, which is worse than undercounting.
@@ -76,12 +76,15 @@ export function computeUnits(usage) {
   const parts = {};
   for (const key of Object.keys(UNIT_WEIGHTS)) parts[key] = read(usage, key);
 
-  // Subtract every cache subset from input when this record uses the inclusive
+  // Subtract the cache parts from input when this record uses the inclusive
   // spelling, so each is weighted once at its own rate.
-  const { input, subsets } = INPUT_INCLUDES_CACHE;
-  if (input in usage) {
-    for (const key of subsets) if (key in usage) parts.input -= num(usage[key]);
-    parts.input = Math.max(0, parts.input);
+  //
+  // Subtract the RESOLVED parts, not a separate key list: the read above
+  // accepts three spellings per field, and a hardcoded list silently missed
+  // cache_read_input_tokens — charging it at 0.1x and again at 1x inside the
+  // residual input, 5.7x over on that shape.
+  if (INCLUSIVE_INPUT_KEY in usage) {
+    parts.input = Math.max(0, parts.input - parts.cacheRead - parts.cacheCreation);
   }
 
   let total = 0;
