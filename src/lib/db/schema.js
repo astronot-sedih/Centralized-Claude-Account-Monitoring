@@ -143,6 +143,28 @@ export const TABLES = {
       data: "TEXT NOT NULL",
     },
   },
+  // A profile is a PERSON — the teammate who owns a Claude connection. It
+  // exists so usage can be read per owner rather than per connection id,
+  // which is what the report is actually about.
+  //
+  // Connections point at a profile by id (providerConnections.data holds
+  // profileId) rather than the profile holding a list, so assigning one is a
+  // single connection write and deleting a profile cannot leave a stale list.
+  profiles: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      name: "TEXT NOT NULL",
+      // Lowercased name, kept unique: "Rafli" and "rafli" would be
+      // indistinguishable in a filter dropdown.
+      nameKey: "TEXT NOT NULL UNIQUE",
+      note: "TEXT",
+      createdAt: "TEXT NOT NULL",
+      updatedAt: "TEXT NOT NULL",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_profiles_name ON profiles(nameKey)",
+    ],
+  },
   // One row per account per quota read. Trend ("hit the limit on 5 of 7 days")
   // is only answerable from a history, and the Claude quota API reports a
   // point-in-time percentage with no past.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { filterStatsByProfile } from "@/lib/monitoring/profileFilter";
 import { useSearchParams, useRouter } from "next/navigation";
 import { FREE_PROVIDERS, AI_PROVIDERS } from "@/shared/constants/providers";
 
@@ -203,7 +204,7 @@ const PERIODS = [
   { value: "all", label: "All" },
 ];
 
-export default function UsageStats({ period: periodProp, setPeriod: setPeriodProp, hidePeriodSelector = false } = {}) {
+export default function UsageStats({ period: periodProp, setPeriod: setPeriodProp, hidePeriodSelector = false, profileId = "", profileAssignments = null } = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -270,7 +271,11 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
       .then((data) => {
         if (data) {
           hasLoadedStats.current = true;
-          setStats((prev) => ({ ...prev, ...data }));
+          // Narrow by profile HERE, where the payload lands, so the totals,
+          // the charts and the table all see the same filtered set. Without a
+          // profileId this is the identity function.
+          const scoped = filterStatsByProfile(data, profileAssignments || {}, profileId);
+          setStats((prev) => ({ ...prev, ...scoped }));
         }
       })
       .catch(() => {})
@@ -278,7 +283,7 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
         setLoading(false);
         setFetching(false);
       });
-  }, [period]);
+  }, [period, profileId, profileAssignments]);
 
   // SSE connection - real-time updates for activeRequests + recentRequests only
   useEffect(() => {

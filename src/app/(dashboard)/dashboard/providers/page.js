@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import ProfilesCard from "@/components/monitoring/ProfilesCard";
 import PropTypes from "prop-types";
 import {
   Card,
@@ -404,6 +405,8 @@ export default function ProvidersPage() {
 
   return (
     <div className="flex min-w-0 flex-col gap-6 px-1 sm:px-0">
+      <ProfilesCard />
+
       <div className="flex items-center justify-end">
         <select
           value={statusFilter}
