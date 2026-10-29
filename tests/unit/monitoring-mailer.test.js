@@ -92,3 +92,46 @@ describe("settings protection", () => {
     expect(src).toMatch(/const\s*\{[^}]*monitorSmtpPass[^}]*\}\s*=\s*settings/);
   });
 });
+
+describe("sendReportMail — the failure reason has to be actionable", () => {
+  it("unwraps AggregateError, which hides its causes behind an empty message", () => {
+    // Node throws AggregateError when every connection attempt fails (IPv4 and
+    // IPv6). Its own .message is often empty, so the reason reaching the
+    // operator was the bare string "AggregateError" — true and useless.
+    const agg = new AggregateError([
+      Object.assign(new Error("connect ECONNREFUSED 10.0.0.1:587"), { code: "ECONNREFUSED" }),
+      Object.assign(new Error("connect ETIMEDOUT 2606:4700::1:587"), { code: "ETIMEDOUT" }),
+    ]);
+    return sendReportMail(report, config, {
+      createTransport: () => ({ sendMail: async () => { throw agg; } }),
+    }).then((r) => {
+      expect(r.sent).toBe(false);
+      expect(r.reason).not.toBe("AggregateError");
+      expect(r.reason).toMatch(/ECONNREFUSED/);
+      expect(r.reason).toMatch(/587/);
+    });
+  });
+
+  it("names the host and port when the connection is refused", async () => {
+    const r = await sendReportMail(report, config, {
+      createTransport: () => ({
+        sendMail: async () => {
+          throw Object.assign(new Error("connect ECONNREFUSED 10.0.0.1:587"), { code: "ECONNREFUSED" });
+        },
+      }),
+    });
+    expect(r.reason).toMatch(/smtp\.test/);   // config.host
+    expect(r.reason).toMatch(/587/);
+  });
+
+  it("still redacts the password inside an unwrapped cause", async () => {
+    const r = await sendReportMail(report, { ...config, pass: "sup3rs3cret" }, {
+      createTransport: () => ({
+        sendMail: async () => {
+          throw new AggregateError([new Error("535 auth failed for sup3rs3cret")]);
+        },
+      }),
+    });
+    expect(JSON.stringify(r)).not.toContain("sup3rs3cret");
+  });
+});

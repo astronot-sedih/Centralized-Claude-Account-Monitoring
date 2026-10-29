@@ -43,6 +43,36 @@ function safeReason(text, pass) {
 }
 
 /**
+ * A reason an operator can act on.
+ *
+ * Node throws AggregateError when every connection attempt fails (IPv4 and
+ * IPv6), and its own `.message` is usually empty — so the reason that reached
+ * the operator was the bare string "AggregateError": true, and useless for
+ * telling a closed port from a wrong password. Unwrap the causes, and name the
+ * host and port the attempt was actually made against.
+ */
+function describeSendFailure(error, config) {
+  const parts = [];
+
+  if (error instanceof AggregateError && Array.isArray(error.errors)) {
+    const causes = [...new Set(error.errors.map((e) => e?.message || String(e)))];
+    parts.push(causes.join("; "));
+  } else {
+    parts.push(error?.message || String(error));
+  }
+
+  // The bare class name means the message was empty; keep it only as a label.
+  if (!parts[0] || parts[0] === "AggregateError") parts[0] = "all connection attempts failed";
+
+  const where = [config?.host, config?.port].filter(Boolean).join(":");
+  if (where && !parts[0].includes(String(config?.host))) {
+    parts.push(`(SMTP ${where}, secure=${config?.secure === true})`);
+  }
+
+  return parts.join(" ");
+}
+
+/**
  * @param {object} report from buildReport()
  * @param {object} config from monitorSettingsFromEnv() or settings
  * @param {object} deps injectable transport, so tests never open a socket
@@ -81,6 +111,6 @@ export async function sendReportMail(report, config = {}, deps = {}) {
 
     return { sent: true };
   } catch (error) {
-    return { sent: false, reason: safeReason(error?.message || String(error), pass) };
+    return { sent: false, reason: safeReason(describeSendFailure(error, config), pass) };
   }
 }
