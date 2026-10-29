@@ -124,3 +124,26 @@ describe("monitoring stays global", () => {
       .not.toMatch(/profileId|activeProfile/);
   });
 });
+
+describe("paginate", () => {
+  const items = Array.from({ length: 7 }, (_, i) => i + 1);
+
+  it("slices the requested page", async () => {
+    const { paginate } = await import("../../src/lib/monitoring/workspace.js");
+    expect(paginate(items, 1, 3)).toEqual({ items: [1, 2, 3], page: 1, pageCount: 3 });
+    expect(paginate(items, 3, 3)).toEqual({ items: [7], page: 3, pageCount: 3 });
+  });
+
+  it("clamps a page past the end instead of showing nothing", async () => {
+    // Deleting the last workspace on the last page must not leave an empty
+    // grid that reads as "my workspaces are gone".
+    const { paginate } = await import("../../src/lib/monitoring/workspace.js");
+    expect(paginate(items, 99, 3).page).toBe(3);
+    expect(paginate(items, 0, 3).page).toBe(1);
+  });
+
+  it("reports one page for an empty list", async () => {
+    const { paginate } = await import("../../src/lib/monitoring/workspace.js");
+    expect(paginate([], 1, 6)).toEqual({ items: [], page: 1, pageCount: 1 });
+  });
+});

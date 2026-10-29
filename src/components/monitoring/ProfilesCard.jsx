@@ -1,16 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { SEV_CSS_VARS } from "@/lib/monitoring/tokens";
+import { paginate } from "@/lib/monitoring/workspace";
 import useProfileStore from "@/store/profileStore";
+
+const PER_PAGE = 6;
 
 /**
  * Workspaces — a profile owns a set of Claude connections.
  *
- * A connection is identified by a uuid and whatever display name the account
- * owner happened to set, which is not how anyone asks "who used how much".
- * Claiming a connection here is what narrows the Providers view to one
- * person's accounts and lets Usage filter by owner.
+ * This is the first thing on the Providers page: pick a workspace, then the
+ * provider list below is that workspace's. A connection is identified by a
+ * uuid and whatever display name the account owner happened to set, which is
+ * not how anyone asks "who used how much", so claiming one here is what
+ * narrows the view and lets Usage filter by owner.
  *
  * Claiming changes what the UI SHOWS, never what routes: an unclaimed
  * connection keeps serving requests, and so does a claimed one while another
@@ -27,6 +31,8 @@ export default function ProfilesCard() {
   } = useProfileStore();
   const [connections, setConnections] = useState([]);
   const [name, setName] = useState("");
+  const [page, setPage] = useState(1);
+  const [editing, setEditing] = useState(null);
   const [state, setState] = useState({ busy: false, msg: null, tone: "low" });
 
   const load = useCallback(async () => {
@@ -101,24 +107,40 @@ export default function ProfilesCard() {
   );
   const countOf = (id) => connections.filter((c) => assignments[c.id] === id).length;
 
+  // "Semua workspace" is a card like any other, so the grid reads as one list
+  // of choices instead of a toggle sitting beside a list.
+  const cards = useMemo(
+    () => [{ id: "", name: "Semua workspace", all: true }, ...profiles],
+    [profiles],
+  );
+  const pageOf = paginate(cards, page, PER_PAGE);
+  // Deleting the last workspace on a page must not strand the view there.
+  useEffect(() => {
+    if (pageOf.page !== page) setPage(pageOf.page);
+  }, [pageOf.page, page]);
+
   // A connection claimed by another workspace is hidden entirely while that
   // workspace is not active — showing it would contradict the scope line.
   const visible = activeProfileId ? [...owned, ...unclaimed] : connections;
 
   const scopeLine = activeName
-    ? `Menampilkan workspace "${activeName}": ${owned.length} akun milik workspace ini` +
+    ? `Workspace "${activeName}": ${owned.length} akun milik workspace ini` +
       (unclaimed.length ? ` + ${unclaimed.length} belum diklaim` : "") +
       (elsewhere.length ? ` · ${elsewhere.length} akun workspace lain disembunyikan` : "")
-    : `Menampilkan semua workspace: ${connections.length} akun Claude`;
+    : `Semua workspace: ${connections.length} akun Claude`;
 
   return (
-    <div className="rounded-lg border px-4 py-3" style={{ borderColor: "var(--line-soft)" }}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <section
+      className="rounded-xl border px-4 py-4"
+      style={{ borderColor: "var(--line-soft)" }}
+      aria-label="Workspace"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold">Workspace</h2>
           <p className="text-[11px] opacity-60">
-            Tiap workspace punya koneksi Claude sendiri. Monitoring tetap global —
-            laporan harian selalu memakai semua akun.
+            Pilih workspace dulu — daftar provider di bawah mengikuti pilihan ini.
+            Monitoring tetap global: laporan harian selalu memakai semua akun.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -142,69 +164,98 @@ export default function ProfilesCard() {
         </div>
       </div>
 
-      {profiles.length ? (
-        <>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveProfile("")}
-              aria-pressed={!activeProfileId}
-              className="rounded border px-2 py-1 text-xs"
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {pageOf.items.map((p) => {
+          const on = p.id === activeProfileId;
+          const count = p.all ? connections.length : countOf(p.id);
+          return (
+            <div
+              key={p.id || "__all__"}
+              className="relative rounded-lg border px-3 py-3 transition-colors"
               style={{
-                borderColor: activeProfileId ? "var(--line-soft)" : "var(--sev-info-line)",
-                background: activeProfileId ? "transparent" : "var(--sev-info-soft)",
-                color: activeProfileId ? undefined : "var(--sev-info-text)",
+                borderColor: on ? "var(--sev-info-line)" : "var(--line-soft)",
+                background: on ? "var(--sev-info-soft)" : "transparent",
               }}
             >
-              Semua workspace
-            </button>
-            {profiles.map((p) => {
-              const on = p.id === activeProfileId;
-              return (
+              <button
+                type="button"
+                onClick={() => setActiveProfile(p.id)}
+                aria-pressed={on}
+                className="block w-full text-left"
+              >
                 <span
-                  key={p.id}
-                  className="inline-flex items-center gap-2 rounded border px-2 py-1 text-xs"
-                  style={{
-                    borderColor: on ? "var(--sev-info-line)" : "var(--line-soft)",
-                    background: on ? "var(--sev-info-soft)" : "transparent",
-                    color: on ? "var(--sev-info-text)" : undefined,
-                  }}
+                  className="block truncate text-sm font-medium"
+                  style={{ color: on ? "var(--sev-info-text)" : undefined }}
                 >
+                  {p.name}
+                </span>
+                <span className="mt-0.5 block text-[11px] opacity-60">
+                  {count} akun Claude
+                  {p.all ? " (semua)" : ""}
+                </span>
+              </button>
+
+              {p.all ? null : (
+                <div className="mt-2 flex items-center gap-3 text-[11px]">
                   <button
                     type="button"
-                    onClick={() => setActiveProfile(p.id)}
-                    aria-pressed={on}
-                    className="font-medium"
+                    onClick={() => setEditing(editing === p.id ? null : p.id)}
+                    className="opacity-60 hover:opacity-100"
+                    aria-expanded={editing === p.id}
                   >
-                    {p.name}
+                    {editing === p.id ? "Tutup" : "Kelola akun"}
                   </button>
-                  <span className="opacity-60">{countOf(p.id)} akun</span>
                   <button
                     type="button"
                     onClick={() => remove(p)}
                     disabled={state.busy}
                     title="Hapus workspace (koneksinya tidak ikut terhapus, hanya lepas klaim)"
-                    className="opacity-50 hover:opacity-100"
+                    className="opacity-60 hover:opacity-100"
                   >
-                    ×
+                    Hapus
                   </button>
-                </span>
-              );
-            })}
-          </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
 
-          <p className="mt-2 text-[11px]" style={{ color: "var(--sev-info-text)" }}>
-            {scopeLine}
-          </p>
-        </>
-      ) : (
-        <p className="mt-3 text-[11px] opacity-60">
-          Belum ada workspace. Buat satu per anggota tim.
-        </p>
-      )}
+      {pageOf.pageCount > 1 ? (
+        <div className="mt-3 flex items-center justify-end gap-2 text-[11px]">
+          <button
+            type="button"
+            onClick={() => setPage((n) => n - 1)}
+            disabled={pageOf.page <= 1}
+            className="rounded border px-2 py-1 disabled:opacity-40"
+            style={{ borderColor: "var(--line-soft)" }}
+          >
+            Sebelumnya
+          </button>
+          <span className="opacity-60">
+            Halaman {pageOf.page} / {pageOf.pageCount}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage((n) => n + 1)}
+            disabled={pageOf.page >= pageOf.pageCount}
+            className="rounded border px-2 py-1 disabled:opacity-40"
+            style={{ borderColor: "var(--line-soft)" }}
+          >
+            Berikutnya
+          </button>
+        </div>
+      ) : null}
 
-      {visible.length ? (
-        <div className="mt-3 space-y-1.5">
+      <p className="mt-3 text-[11px]" style={{ color: "var(--sev-info-text)" }}>
+        {scopeLine}
+      </p>
+
+      {/* Claiming is behind "Kelola akun" so the grid stays the first thing
+          read; it opens in place rather than on another page because the
+          answer to "which accounts are in here" is what you just clicked. */}
+      {editing && visible.length ? (
+        <div className="mt-3 space-y-1.5 rounded-lg border px-3 py-2" style={{ borderColor: "var(--line-soft)" }}>
           {visible.map((c) => {
             const owner = assignments[c.id];
             return (
@@ -225,7 +276,7 @@ export default function ProfilesCard() {
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
-                {activeProfileId && !owner ? (
+                {!owner ? (
                   <span className="opacity-50">terlihat di semua workspace</span>
                 ) : null}
               </div>
@@ -237,6 +288,6 @@ export default function ProfilesCard() {
       {state.msg ? (
         <p className="mt-2 text-[11px]" style={{ color: sev.text }}>{state.msg}</p>
       ) : null}
-    </div>
+    </section>
   );
 }

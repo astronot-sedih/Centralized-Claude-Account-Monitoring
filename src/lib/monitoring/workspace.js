@@ -107,3 +107,22 @@ export function scopeToProfile(items = [], ownerOf, profileId = "") {
     return !owner || owner === profileId;
   });
 }
+
+/**
+ * One page of workspace cards.
+ *
+ * Clamped rather than validated: deleting the last workspace on page 3 leaves
+ * the UI asking for a page that no longer exists, and an empty grid there
+ * reads as "my workspaces are gone".
+ *
+ * @param {Array} items
+ * @param {number} page 1-based
+ * @param {number} perPage
+ */
+export function paginate(items = [], page = 1, perPage = 6) {
+  const size = Math.max(1, Math.floor(perPage) || 1);
+  const pageCount = Math.max(1, Math.ceil(items.length / size));
+  const current = Math.min(Math.max(1, Math.floor(page) || 1), pageCount);
+  const start = (current - 1) * size;
+  return { items: items.slice(start, start + size), page: current, pageCount };
+}
