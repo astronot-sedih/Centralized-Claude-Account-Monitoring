@@ -46,6 +46,38 @@ function labelOf(rows, key) {
 
 // Pads to a fixed width so the table aligns in a monospaced client. Overlong
 // values are truncated rather than breaking the column.
+/**
+ * A chart in fixed-width text.
+ *
+ * One row per day rather than a horizon of block characters: the plain-text
+ * part is read in clients that reflow lines and substitute fonts, where a
+ * single-line sparkline collapses into noise. Rows survive both.
+ *
+ * Only the last `limit` days: a 30-row block ahead of the tables would push
+ * them below the fold in a phone client.
+ */
+function chartLines(points, { label, fmt = (v) => String(v), limit = 14, width = 24, valueKey = "value" } = {}) {
+  // The two series name their value differently (`value` vs `costUsd`), so
+  // the key is explicit: defaulting to one of them silently draws an empty
+  // chart for the other, which reads as "nobody spent anything".
+  const rows = (points || [])
+    .filter((p) => p && p.date)
+    .slice(-limit)
+    .map((p) => ({ date: p.date, value: Number(p[valueKey]) || 0 }));
+  if (!rows.length) return [];
+
+  const max = Math.max(1, ...rows.map((p) => p.value));
+  const out = ["", `${label} (${rows.length} hari terakhir, puncak ${fmt(max)})`];
+  for (const p of rows) {
+    const v = Number(p.value) || 0;
+    // A zero day draws no bar but still prints its row, so a quiet day reads
+    // as quiet rather than as missing data.
+    const n = v > 0 ? Math.max(1, Math.round((v / max) * width)) : 0;
+    out.push(`  ${p.date}  ${"#".repeat(n).padEnd(width)}  ${fmt(v)}`);
+  }
+  return out;
+}
+
 function pad(value, width, right = false) {
   const s = String(value ?? "");
   const t = s.length > width ? s.slice(0, width - 1) + "…" : s;
@@ -166,6 +198,7 @@ export function renderReportText(report) {
           "  " + pad(fmtNum(m.daysActive), W3.days, true)
       );
     }
+    out.push(...chartLines(act.series, { label: "  Pengguna aktif harian", fmt: (v) => `${fmtNum(v)} orang` }));
   } else if (report?.claudeWeb?.activityError) {
     out.push("");
     out.push(`ADOPSI TIM: tidak terbaca — ${report.claudeWeb.activityError}`);
@@ -201,6 +234,7 @@ export function renderReportText(report) {
           "  " + pad(fmtNum(u.sessions), W2.sess, true)
       );
     }
+    out.push(...chartLines(web.series, { label: "  Biaya harian (estimasi setara API)", fmt: (v) => fmtUsd(v), valueKey: "costUsd" }));
   } else if (web?.error) {
     out.push("");
     out.push(`PEMAKAIAN LEWAT WEB & DESKTOP: tidak terbaca — ${web.error}`);

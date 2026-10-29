@@ -127,6 +127,56 @@ function td(html, align = "left", extra = "") {
   return `<td style="text-align:${align};padding:9px 10px;border-bottom:1px solid ${T.lineSoft};font-family:${T.fontBody};font-size:12px;color:${T.ink};vertical-align:middle;${extra}">${html}</td>`;
 }
 
+/**
+ * A bar chart built from table cells.
+ *
+ * Mail clients run no JavaScript and most block remote images by default, so
+ * a canvas or a hosted PNG reaches the reader as a blank rectangle. A table
+ * of coloured cells renders everywhere, including Outlook.
+ *
+ * @param {Array<{date: string, value: number}>} points
+ * @param {(v: number) => string} fmt how to write a value in the tooltip
+ */
+function chart(points, { label, fmt = (v) => String(v), height = 44, valueKey = "value" } = {}) {
+  // The two series name their value differently (`value` vs `costUsd`), so
+  // the key is explicit: defaulting to one of them silently draws a flat zero
+  // line for the other, which reads as "nobody spent anything".
+  const rows = (points || [])
+    .filter((p) => p && p.date)
+    .map((p) => ({ date: p.date, value: Number(p[valueKey]) || 0 }));
+  if (!rows.length) return "";
+
+  const max = Math.max(1, ...rows.map((p) => p.value));
+  const bars = rows
+    .map((p) => {
+      const v = Number(p.value) || 0;
+      // Every bar keeps a visible floor, so a zero day reads as "nothing
+      // happened here" rather than as a gap in the chart.
+      const h = Math.max(2, Math.round((v / max) * height));
+      return `<td valign="bottom" style="padding:0 1px" title="${esc(p.date)}: ${esc(fmt(v))}">
+        <div style="height:${height - h}px;line-height:1px;font-size:1px">&nbsp;</div>
+        <div style="height:${h}px;background:${v ? SEV_TOKENS.info.dot : T.track};border-radius:2px 2px 0 0;line-height:1px;font-size:1px">&nbsp;</div>
+      </td>`;
+    })
+    .join("");
+
+  // First and last date only: 30 labels would not fit, and the reader needs
+  // the span more than each tick.
+  const first = rows[0].date;
+  const last = rows[rows.length - 1].date;
+
+  return `<div style="font-family:${T.fontLabel};font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:${T.muted};margin:14px 0 4px 0">${esc(label)}</div>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background:${T.surface};border:1px solid ${T.line};border-radius:${T.radius};padding:8px">
+  <tr><td style="padding:8px 8px 4px 8px">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse"><tr>${bars}</tr></table>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin-top:4px"><tr>
+      <td style="font-family:${T.fontLabel};font-size:10px;color:${T.muted};text-align:left">${esc(first)}</td>
+      <td style="font-family:${T.fontLabel};font-size:10px;color:${T.muted};text-align:right">${esc(last)} &middot; puncak ${esc(fmt(max))}</td>
+    </tr></table>
+  </td></tr>
+</table>`;
+}
+
 function sourceChip(source) {
   const proxied = source === "9router";
   const sev = proxied ? SEV_TOKENS.low : SEV_TOKENS.info;
@@ -244,7 +294,8 @@ export function renderReportHtml(report) {
   ADOPSI TIM — semua produk Claude, seluruh anggota${act.dataAsOf ? `, per ${esc(act.dataAsOf)}` : ""}
 </div>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin:0 0 8px 0"><tr>${tiles}</tr></table>
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background:${T.surface};border:1px solid ${T.line};border-radius:${T.radius}">
+${chart(act.series, { label: "Pengguna aktif harian", fmt: (v) => `${fmtNum(v)} orang` })}
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background:${T.surface};border:1px solid ${T.line};border-radius:${T.radius};margin-top:10px">
   <thead><tr>${th("Anggota")}${th("Chat", "right")}${th("Pesan", "right")}${th("Sesi Cowork", "right")}${th("Sesi Code", "right")}${th("Hari aktif", "right")}</tr></thead>
   <tbody>${rows3 || `<tr>${td(`<span style="color:${T.muted}">Belum ada data.</span>`)}</tr>`}</tbody>
 </table>`;
@@ -295,7 +346,8 @@ export function renderReportHtml(report) {
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background:${T.surface};border:1px solid ${T.line};border-radius:${T.radius}">
   <thead><tr>${th("Orang")}${th("Status")}${th("Est. biaya", "right")}${th("Rata-rata/hari", "right")}${th("Sesi", "right")}${th("Baris", "right")}</tr></thead>
   <tbody>${rows2 || `<tr>${td(`<span style="color:${T.muted}">Belum ada data.</span>`)}</tr>`}</tbody>
-</table>`;
+</table>
+${chart(web.series, { label: "Biaya harian (estimasi setara API)", fmt: (v) => fmtUsd(v), valueKey: "costUsd" })}`;
       })()
     // A failed read is stated, never silent: a missing section reads as "the
     // team did nothing on web and desktop", which is the costliest misreading

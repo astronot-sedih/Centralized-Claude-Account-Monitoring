@@ -17,6 +17,8 @@ import {
   monthRangeFor,
   normalizeActivityOverview,
   normalizeMembers,
+  normalizeSeries,
+  normalizeTimeseries,
 } from "./claudeWeb/normalize.js";
 import { buildReport } from "./report/buildReport.js";
 import { collectOnce } from "./quotaCollector.js";
@@ -102,10 +104,16 @@ export async function assembleReport(dateKey, timeZone) {
       range,
       summary: r.overview ? normalizeOverview(r.overview) : null,
       users: normalizeUsers(r.users),
+      // Daily series, for the charts. The email renders them as plain table
+      // cells with background colours — a mail client runs no JavaScript and
+      // most block remote images, so a canvas or a hosted PNG would reach the
+      // reader as a blank rectangle.
+      series: r.overview ? normalizeSeries(r.overview) : [],
       activity: a.ok
         ? {
             overview: normalizeActivityOverview(a.overview),
             members: normalizeMembers(a.members),
+            series: normalizeTimeseries(a.series),
             dataAsOf: a.dataAsOf,
           }
         : null,

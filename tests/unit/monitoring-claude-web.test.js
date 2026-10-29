@@ -384,3 +384,81 @@ describe("adoption table identifies members by email", () => {
     expect(out).not.toMatch(/\bpc\b/);
   });
 });
+
+describe("charts in the report", () => {
+  const withSeries = {
+    dateKey: "2026-10-29", rows: [], summary: {}, coverage: {},
+    claudeWeb: {
+      range: { startDate: "2026-10-01", endDate: "2026-10-29" },
+      summary: { totalCostUsd: 109, activeUsers: 3, totalSessions: 16, linesAccepted: 4352 },
+      users: [{ email: "a@x.io", totalCostUsd: 99, avgCostPerDayUsd: 4, sessions: 12 }],
+      series: [
+        { date: "2026-10-27", costUsd: 50 },
+        { date: "2026-10-28", costUsd: 0 },
+        { date: "2026-10-29", costUsd: 109 },
+      ],
+      activity: {
+        overview: { utilization: { value: 90 }, dau: { value: 8 }, wau: { value: 9 }, mau: { value: 9 }, totalMembers: 10 },
+        members: [{ email: "a@x.io", chats: 1, chatMessages: 2, coworkSessions: 3, codeSessions: 4, daysActive: 5 }],
+        series: [
+          { date: "2026-10-27", value: 8 },
+          { date: "2026-10-28", value: 3 },
+        ],
+      },
+    },
+  };
+
+  it("draws both charts in the plain-text part", async () => {
+    const { renderReportText } = await import("../../src/lib/monitoring/report/renderText.js");
+    const out = renderReportText(withSeries);
+    expect(out).toMatch(/Pengguna aktif harian/);
+    expect(out).toMatch(/Biaya harian/);
+    expect(out).toMatch(/#/);
+  });
+
+  it("reads the cost series by its own key, not a flat zero line", async () => {
+    // The two series name their value differently (`value` vs `costUsd`). A
+    // chart that knows only one draws an empty axis for the other, which
+    // reads as "nobody spent anything" rather than as a bug.
+    const { renderReportText } = await import("../../src/lib/monitoring/report/renderText.js");
+    const out = renderReportText(withSeries);
+    const block = out.slice(out.indexOf("Biaya harian"));
+    expect(block).toMatch(/puncak \$109\.00/);
+    expect(block).toMatch(/2026-10-29\s+#+\s+\$109\.00/);
+  });
+
+  it("prints a zero day as a row with no bar, not as a gap", async () => {
+    // A missing row reads as missing data; an empty bar reads as a quiet day.
+    const { renderReportText } = await import("../../src/lib/monitoring/report/renderText.js");
+    const out = renderReportText(withSeries);
+    expect(out).toMatch(/2026-10-28\s+\$0\.00/);
+  });
+
+  it("keeps the plain-text part free of HTML", async () => {
+    const { renderReportText } = await import("../../src/lib/monitoring/report/renderText.js");
+    expect(renderReportText(withSeries)).not.toMatch(/<[a-z/][^>]*>/i);
+  });
+
+  it("builds the HTML chart from table cells, not script or remote images", async () => {
+    // Mail clients run no JavaScript and most block remote images, so either
+    // would reach the reader as a blank rectangle.
+    const { renderReportHtml } = await import("../../src/lib/monitoring/report/renderHtml.js");
+    const html = renderReportHtml(withSeries);
+    expect(html).toMatch(/Pengguna aktif harian/);
+    expect(html).toMatch(/Biaya harian/);
+    expect(html).not.toMatch(/<script/i);
+    expect(html).not.toMatch(/<img[^>]+src=["']https?:/i);
+    expect(html).not.toMatch(/<canvas/i);
+  });
+
+  it("omits a chart entirely when its series is empty", async () => {
+    // An axis with no bars invites the reader to conclude the value was zero.
+    const { renderReportHtml } = await import("../../src/lib/monitoring/report/renderHtml.js");
+    const html = renderReportHtml({
+      ...withSeries,
+      claudeWeb: { ...withSeries.claudeWeb, series: [] },
+    });
+    expect(html).not.toMatch(/Biaya harian/);
+    expect(html).toMatch(/Pengguna aktif harian/);
+  });
+});
