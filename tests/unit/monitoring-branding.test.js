@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { APP_CONFIG } from "../../src/shared/constants/config.js";
 
 describe("product branding", () => {
-  it("is CCAM Router", () => {
-    expect(APP_CONFIG.name).toBe("CCAM Router (Only For Claude)");
+  it("is DakaraRouter", () => {
+    expect(APP_CONFIG.name).toBe("DakaraRouter");
   });
 
   it("keeps the npm package and upstream URLs untouched", async () => {
@@ -17,13 +17,24 @@ describe("product branding", () => {
 });
 
 describe("browser-surface branding", () => {
+  it("carries no leftover brand anywhere user-facing", async () => {
+    const fs = await import("node:fs");
+    for (const f of ["../src/shared/constants/config.js", "../src/app/layout.js",
+                     "../src/app/manifest.js", "../src/app/login/page.js",
+                     "../src/app/(dashboard)/dashboard/usage/components/ProviderTopology.js"]) {
+      const src = fs.readFileSync(f, "utf8");
+      expect(src, `${f} still mentions CCAM`).not.toMatch(/CCAM/);
+      expect(src, `${f} still says Only For Claude`).not.toMatch(/Only For Claude/);
+    }
+  });
+
   it("renames the page title and the PWA manifest", async () => {
     const fs = await import("node:fs");
     const layout = fs.readFileSync("../src/app/layout.js", "utf8");
     const manifest = fs.readFileSync("../src/app/manifest.js", "utf8");
-    expect(layout).toContain("CCAM Router (Only For Claude)");
+    expect(layout).toContain("DakaraRouter");
     expect(layout).not.toMatch(/title:\s*"9Router/);
-    expect(manifest).toContain("CCAM Router");
+    expect(manifest).toContain("DakaraRouter");
     expect(manifest).not.toMatch(/name:\s*'9Router -/);
   });
 });

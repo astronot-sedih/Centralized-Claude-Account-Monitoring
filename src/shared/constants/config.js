@@ -5,7 +5,7 @@ export const APP_CONFIG = {
   // Display name only. The npm package, the changelog URL and the install
   // command below still name the upstream project — renaming those would
   // break self-update and the changelog/donate fetches.
-  name: "CCAM Router (Only For Claude)",
+  name: "DakaraRouter",
   description: "Centralized Claude Account Monitoring",
   version: pkg.version,
 };

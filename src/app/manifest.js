@@ -1,7 +1,7 @@
 export default function manifest() {
   return {
-    name: 'CCAM Router (Only For Claude)',
-    short_name: 'CCAM Router',
+    name: 'DakaraRouter',
+    short_name: 'DakaraRouter',
     description: 'Centralized Claude account monitoring — per-account quota, usage and reporting.',
     start_url: '/',
     display: 'standalone',
