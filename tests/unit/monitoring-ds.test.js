@@ -68,3 +68,34 @@ describe("Dakara design system wiring", () => {
     expect(read("../src/shared/constants/config.js")).toMatch(/defaultTheme: "dark"/);
   });
 });
+
+describe("theme-dependent chrome follows the theme", () => {
+  it("defines the sidebar tint for both themes", () => {
+    // It was hardcoded white/dark-grey and keyed on .dark, so the sidebar
+    // stayed dark in the light theme after the flip to dark-first.
+    const g = read("../src/app/globals.css");
+    expect(g).toMatch(/\.light \.bg-vibrancy/);
+    expect(g).not.toMatch(/\.dark \.bg-vibrancy/);
+  });
+
+  it("re-declares the --color-* aliases under .light", () => {
+    // They are declared on :root, where var(--bg) has already resolved to the
+    // dark value; without re-declaring, the light theme keeps dark surfaces.
+    const g = read("../src/app/globals.css");
+    const light = g.slice(g.indexOf(".light {"), g.indexOf(".dark  {"));
+    for (const t of ["--color-bg:", "--color-surface:", "--color-text-main:"]) {
+      expect(light, `${t} must be re-declared under .light`).toContain(t);
+    }
+  });
+
+  it("defines --color-text-primary, which ~36 utilities use", () => {
+    expect(read("../src/app/globals.css")).toMatch(/--color-text-primary:/);
+  });
+
+  it("draws selects itself so they theme on Windows", () => {
+    // color-scheme alone leaves the native control white on Windows.
+    const g = read("../src/app/globals.css");
+    const sel = g.slice(g.indexOf("select {"), g.indexOf("select {") + 500);
+    expect(sel).toMatch(/appearance: none/);
+  });
+});

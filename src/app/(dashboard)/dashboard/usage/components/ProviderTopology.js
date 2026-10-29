@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import PropTypes from "prop-types";
+import { APP_CONFIG } from "@/shared/constants/config";
 import {
   ReactFlow,
   Handle,
@@ -94,7 +95,7 @@ ProviderNode.propTypes = {
   data: PropTypes.object.isRequired,
 };
 
-// Center 9Router node — pulse/glow on card only (no expanding rings)
+// Center router node — pulse/glow on card only (no expanding rings)
 function RouterNode({ data }) {
   const powering = (data.activeCount || 0) > 0;
   return (
@@ -112,13 +113,14 @@ function RouterNode({ data }) {
 
       <img
         src="/favicon.svg"
-        alt="9Router"
+        alt={APP_CONFIG.name}
         className={`w-6 h-6 mr-2 ${powering ? "topology-router-icon" : ""}`}
         loading="lazy"
         decoding="async"
       />
       <span className={`text-sm font-bold ${powering ? "topology-router-label text-yellow-300" : "text-primary"}`}>
-        9Router
+        {/* Short form: the full name does not fit a topology node. */}
+        CCAM
       </span>
       {data.activeCount > 0 && (
         <span className="ml-2 px-1.5 py-0.5 rounded-full bg-yellow-400 text-black text-xs font-bold topology-router-badge">

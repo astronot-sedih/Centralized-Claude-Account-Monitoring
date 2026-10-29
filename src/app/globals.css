@@ -54,6 +54,8 @@
 
   --color-text: var(--ink);
   --color-text-main: var(--ink);
+  /* Used by ~36 `text-text-primary` utilities that had no token behind them. */
+  --color-text-primary: var(--ink);
   --color-text-muted: var(--muted);
   --color-text-subtle: var(--faint);
 
@@ -76,7 +78,32 @@
   color-scheme: dark;
 }
 
-.light { color-scheme: light; }
+/* The --color-* aliases are declared on :root, where var(--bg) etc. resolve to
+   the DARK values. Under .light the Dakara tokens flip, but the aliases keep
+   their already-substituted values, so they must be re-declared here. */
+.light {
+  --color-bg: var(--bg);
+  --color-bg-alt: var(--surface-2);
+  --color-bg-dark: var(--bg);
+  --color-bg-light: var(--surface);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--elevated);
+  --color-sidebar: var(--sb-surface);
+  --color-sidebar-dark: var(--sb-surface);
+  --color-border: var(--line);
+  --color-border-dark: var(--line);
+  --color-border-light: var(--line-soft);
+  --color-border-subtle: var(--line-2);
+  --color-text: var(--ink);
+  --color-text-main: var(--ink);
+  --color-text-primary: var(--ink);
+  --color-text-muted: var(--muted);
+  --color-text-subtle: var(--faint);
+  --color-accent: var(--accent-text);
+  color-scheme: light;
+}
+
 .dark  { color-scheme: dark; }
 
 body {
@@ -99,12 +126,35 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); }
 /* ============================================================
    Fix native select dropdowns in dark mode
    ============================================================ */
+/* Dark is the ground; only the explicit light theme flips the dropdown.
+   color-scheme alone is not enough on Windows — the native widget still paints
+   itself white — so the control is drawn by us and the arrow redrawn as an
+   inline SVG. The popup list still comes from the OS, which is what
+   color-scheme governs. */
 select {
-  color-scheme: light;
+  color-scheme: dark;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--surface-2);
+  color: var(--ink);
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%23a1a1aa' stroke-width='1.5' d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 26px;
 }
 
-.dark select {
-  color-scheme: dark;
+select option {
+  background-color: var(--surface-2);
+  color: var(--ink);
+}
+
+.light select {
+  color-scheme: light;
+  background-color: var(--surface);
+}
+
+.light select option {
+  background-color: var(--surface);
 }
 
 .dark select option {
@@ -284,14 +334,19 @@ input, textarea {
   background: linear-gradient(180deg, var(--color-bg-alt) 0%, var(--color-bg) 100%);
 }
 
-/* macOS Vibrancy */
+/* macOS Vibrancy. The tint is declared per theme rather than color-mix'd from
+   --sb-surface: a var() inside color-mix resolves against the element the rule
+   is declared on, so it kept picking up the dark value under .light. */
 .bg-vibrancy {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(11, 12, 13, 0.82);
 }
-.dark .bg-vibrancy {
-  background: rgba(38, 38, 38, 0.72);
+
+/* Light theme: a descendant selector, so it beats the base rule on
+   specificity rather than relying on variable inheritance. */
+.light .bg-vibrancy {
+  background: rgba(242, 244, 247, 0.82);
 }
 
 /* macOS Traffic Lights */
