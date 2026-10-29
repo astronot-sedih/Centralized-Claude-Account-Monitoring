@@ -17,8 +17,8 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: "9Router - AI Infrastructure Management",
-  description: "One endpoint for all your AI providers. Manage keys, monitor usage, and scale effortlessly.",
+  title: "CCAM Router (Only For Claude)",
+  description: "Centralized Claude account monitoring — per-account quota, usage and reporting.",
   icons: {
     icon: "/favicon.svg",
   },
