@@ -1,7 +1,7 @@
 export default function manifest() {
   return {
-    name: 'DakaraRouter',
-    short_name: 'DakaraRouter',
+    name: 'Dakara Router',
+    short_name: 'Dakara Router',
     description: 'Centralized Claude account monitoring — per-account quota, usage and reporting.',
     start_url: '/',
     display: 'standalone',

@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { APP_CONFIG } from "../../src/shared/constants/config.js";
 
 describe("product branding", () => {
-  it("is DakaraRouter", () => {
-    expect(APP_CONFIG.name).toBe("DakaraRouter");
+  it("is Dakara Router", () => {
+    expect(APP_CONFIG.name).toBe("Dakara Router");
   });
 
   it("keeps the npm package and upstream URLs untouched", async () => {
@@ -32,9 +32,9 @@ describe("browser-surface branding", () => {
     const fs = await import("node:fs");
     const layout = fs.readFileSync("../src/app/layout.js", "utf8");
     const manifest = fs.readFileSync("../src/app/manifest.js", "utf8");
-    expect(layout).toContain("DakaraRouter");
+    expect(layout).toContain("Dakara Router");
     expect(layout).not.toMatch(/title:\s*"9Router/);
-    expect(manifest).toContain("DakaraRouter");
+    expect(manifest).toContain("Dakara Router");
     expect(manifest).not.toMatch(/name:\s*'9Router -/);
   });
 });
