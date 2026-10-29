@@ -20,6 +20,7 @@ function rowToProfile(row) {
   return {
     id: row.id,
     name: row.name,
+    email: row.email || null,
     note: row.note || null,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -42,7 +43,7 @@ export async function getProfileById(id) {
  * @param {{name: string, note?: string}} data
  * @returns {Promise<object>} the created profile
  */
-export async function createProfile({ name, note } = {}) {
+export async function createProfile({ name, email, note } = {}) {
   const clean = String(name || "").trim();
   if (!clean) throw new Error("Profile name is required.");
 
@@ -54,12 +55,13 @@ export async function createProfile({ name, note } = {}) {
 
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
+  const mail = String(email || "").trim().toLowerCase() || null;
   db.run(
-    `INSERT INTO profiles (id, name, nameKey, note, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [id, clean, key, note?.trim() || null, now, now]
+    `INSERT INTO profiles (id, name, nameKey, email, note, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [id, clean, key, mail, note?.trim() || null, now, now]
   );
-  return { id, name: clean, note: note?.trim() || null, createdAt: now, updatedAt: now };
+  return { id, name: clean, email: mail, note: note?.trim() || null, createdAt: now, updatedAt: now };
 }
 
 /** Renaming keeps the id, so every assigned connection follows along. */
@@ -76,6 +78,25 @@ export async function renameProfile(id, name, note) {
     `UPDATE profiles SET name = ?, nameKey = ?, note = ?, updatedAt = ? WHERE id = ?`,
     [clean, key, note === undefined ? null : note?.trim() || null, new Date().toISOString(), id]
   );
+  return getProfileById(id);
+}
+
+/**
+ * Attaches a claude.ai member's email to an existing profile.
+ *
+ * Only the email changes — the id, name and every connection assignment stay
+ * put, which is what makes linking a hand-made profile safe: the person's
+ * history does not move.
+ */
+export async function setProfileEmail(id, email) {
+  const mail = String(email || "").trim().toLowerCase() || null;
+  const db = await getAdapter();
+  const res = db.run(`UPDATE profiles SET email = ?, updatedAt = ? WHERE id = ?`, [
+    mail,
+    new Date().toISOString(),
+    id,
+  ]);
+  if ((res?.changes ?? 0) === 0) throw new Error("Profile not found.");
   return getProfileById(id);
 }
 

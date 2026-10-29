@@ -32,6 +32,9 @@ export default function ProfilesCard() {
   const [connections, setConnections] = useState([]);
   const [name, setName] = useState("");
   const [page, setPage] = useState(1);
+  // The sync plan, fetched before anything is written. Showing what WOULD
+  // happen first matters because applying it creates rows in team data.
+  const [plan, setPlan] = useState(null);
   const [editing, setEditing] = useState(null);
   const [state, setState] = useState({ busy: false, msg: null, tone: "low" });
 
@@ -95,6 +98,33 @@ export default function ProfilesCard() {
         body: JSON.stringify({ connectionId, assign: Boolean(profileId) }),
       });
       if (!res.ok) throw new Error((await res.json())?.error || `HTTP ${res.status}`);
+    });
+
+  // Preview the sync: GET is a dry run, POST applies it.
+  const previewSync = () =>
+    act(async () => {
+      const res = await fetch("/api/monitoring/claude-web/sync-profiles", { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      setPlan(data);
+    });
+
+  const applySync = () =>
+    act(async () => {
+      const res = await fetch("/api/monitoring/claude-web/sync-profiles", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      setPlan(null);
+      const made = [
+        data.created ? `${data.created} profil dibuat` : null,
+        data.linked ? `${data.linked} ditautkan` : null,
+        data.failed?.length ? `${data.failed.length} gagal` : null,
+      ].filter(Boolean);
+      setState({
+        busy: false,
+        msg: made.length ? made.join(" · ") : "Semua profil sudah sesuai.",
+        tone: data.failed?.length ? "medium" : "low",
+      });
     });
 
   const sev = SEV_CSS_VARS[state.tone] || SEV_CSS_VARS.info;
@@ -161,8 +191,64 @@ export default function ProfilesCard() {
           >
             Buat workspace
           </button>
+          <button
+            type="button"
+            onClick={previewSync}
+            disabled={state.busy}
+            title="Cocokkan workspace dengan anggota organisasi claude.ai"
+            className="rounded-lg border px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+            style={{ borderColor: "var(--sev-info-line)", color: "var(--sev-info-text)" }}
+          >
+            Sinkron dari Claude
+          </button>
         </div>
       </div>
+
+      {/* The plan, before anything is written. An apply that showed its
+          result only afterwards would leave the operator undoing by hand. */}
+      {plan ? (
+        <div
+          className="mt-3 rounded-lg border px-3 py-2.5 text-[11px]"
+          style={{ borderColor: "var(--sev-info-line)", background: "var(--sev-info-soft)" }}
+        >
+          <div className="font-medium" style={{ color: "var(--sev-info-text)" }}>
+            {plan.summary} · {plan.memberCount} anggota di organisasi
+          </div>
+
+          {plan.plan?.create?.length ? (
+            <div className="mt-1.5">
+              Akan dibuat: {plan.plan.create.map((c) => c.name).join(", ")}
+            </div>
+          ) : null}
+          {plan.plan?.link?.length ? (
+            <div className="mt-1">
+              Akan ditautkan ke email:{" "}
+              {plan.plan.link.map((l) => `${l.name} → ${l.email}`).join(", ")}
+            </div>
+          ) : null}
+          {plan.plan?.unmatched?.length ? (
+            <div className="mt-1 opacity-70">
+              Tidak ada di organisasi (dibiarkan apa adanya):{" "}
+              {plan.plan.unmatched.map((x) => x.name).join(", ")}
+            </div>
+          ) : null}
+
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={applySync}
+              disabled={state.busy || (!plan.plan?.create?.length && !plan.plan?.link?.length)}
+              className="rounded border px-2.5 py-1 font-medium disabled:opacity-50"
+              style={{ borderColor: "var(--sev-info-line)" }}
+            >
+              Terapkan
+            </button>
+            <button type="button" onClick={() => setPlan(null)} className="opacity-60 hover:opacity-100">
+              Batal
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {pageOf.items.map((p) => {

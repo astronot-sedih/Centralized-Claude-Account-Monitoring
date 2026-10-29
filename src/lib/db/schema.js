@@ -157,6 +157,11 @@ export const TABLES = {
       // Lowercased name, kept unique: "Rafli" and "rafli" would be
       // indistinguishable in a filter dropdown.
       nameKey: "TEXT NOT NULL UNIQUE",
+      // The claude.ai member this profile stands for, when it was synced from
+      // the organization. Deliberately NOT unique and nullable: profiles made
+      // by hand before the sync existed have none, and a UNIQUE constraint
+      // would make the whole sync fail on one duplicate rather than skip it.
+      email: "TEXT",
       note: "TEXT",
       createdAt: "TEXT NOT NULL",
       updatedAt: "TEXT NOT NULL",

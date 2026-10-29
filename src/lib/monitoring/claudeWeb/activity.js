@@ -84,6 +84,16 @@ export function fetchActivityTimeseries({ orgId, metric = "dau", days = 30, prod
   return get(`${base(orgId)}/activity/timeseries?${p}`, rest);
 }
 
+/**
+ * The organization's members — who the team actually is.
+ *
+ * Not under /analytics: this is the membership list itself, and it is what
+ * profiles are synced against.
+ */
+export function fetchMembers({ orgId, ...rest }) {
+  return get(`https://claude.ai/api/organizations/${orgId}/members`, rest);
+}
+
 /** What kinds of file Cowork touched. */
 export function fetchCoworkFileCategories({ orgId, startDate, ...rest }) {
   const p = new URLSearchParams({ start_date: startDate });
