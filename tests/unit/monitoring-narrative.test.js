@@ -5,7 +5,11 @@ import { summaryNarrative, readingGuide, limitations } from "../../src/lib/monit
 const report = {
   summary: { atRiskCount: 1, accountCount: 2, limitDaysThisWeek: 1, unmeasuredCount: 0, failedReadCount: 0 },
   coverage: { samplesTaken: 6, samplesExpected: 24, percent: 25, partial: true },
-  rows: [{ connectionId: "a", windows: [] }],
+  // Two connections, both through the router, both owned by one profile.
+  rows: [
+    { connectionId: "a", account: "3d", profile: "Rafli", source: "9router", measurable: true, windows: [] },
+    { connectionId: "b", account: "Account 2", profile: "Rafli", source: "9router", measurable: true, windows: [] },
+  ],
   claudeWeb: {
     summary: { totalCostUsd: 1548.92, activeUsers: 5, totalSessions: 199, linesAccepted: 90767 },
     series: [{ date: "2026-10-29", costUsd: 109 }],
@@ -28,24 +32,47 @@ describe("summaryNarrative", () => {
     expect(first).toMatch(/90%/);
   });
 
-  it("names the gap between the two lenses", () => {
-    // 9 people use Claude; 5 use Claude Code. Those 4 are exactly who a
-    // decision based on Claude Code alone would miss.
+  it("measures coverage against the router's profiles, not Claude Code", () => {
+    // The router is what attributes tokens and cost to a named person, via
+    // the profile owning each connection. Claude Code use on a claude.ai
+    // subscription is reported by Anthropic as an org total, so counting its
+    // users as "measured" would claim a per-person breakdown that does not
+    // exist. Two connections here, one profile: 1 of 9 covered.
     const text = summaryNarrative(report).join(" ");
-    expect(text).toMatch(/4 orang memakai Claude tanpa lewat Claude Code/);
+    expect(text).toMatch(/1 profil yang koneksinya lewat Dakara Router \(Rafli\)/);
+    expect(text).toMatch(/8 pengguna lain/);
+    expect(text).not.toMatch(/tanpa lewat Claude Code/);
   });
 
-  it("omits the gap sentence when the two lenses agree", () => {
-    // A sentence claiming "0 orang" invites the reader to look for a group
-    // that does not exist.
-    const same = {
+  it("counts each profile once however many connections it owns", () => {
+    // Two rows, one profile. Saying "2 profil" would overstate how much of
+    // the team is accounted for.
+    const text = summaryNarrative(report).join(" ");
+    expect(text).toMatch(/hanya untuk 1 profil/);
+  });
+
+  it("names an unclaimed connection by its account rather than inventing one", () => {
+    const unclaimed = {
       ...report,
-      claudeWeb: {
-        ...report.claudeWeb,
-        summary: { ...report.claudeWeb.summary, activeUsers: 9 },
-      },
+      rows: [{ connectionId: "a", account: "3d", profile: null, source: "9router", measurable: true, windows: [] }],
     };
-    expect(summaryNarrative(same).join(" ")).not.toMatch(/tanpa lewat Claude Code/);
+    expect(summaryNarrative(unclaimed).join(" ")).toMatch(/\(3d\)/);
+  });
+
+  it("says plainly when nothing goes through the router", () => {
+    // Silence here would leave the reader assuming the per-person cost table
+    // covers everyone.
+    const none = { ...report, rows: [] };
+    expect(summaryNarrative(none).join(" ")).toMatch(/Belum ada profil yang koneksinya lewat Dakara Router/);
+  });
+
+  it("does not count a Desktop-only connection as measured", () => {
+    // Its quota is readable; its tokens are not attributable.
+    const desktop = {
+      ...report,
+      rows: [{ connectionId: "a", account: "3d", profile: "Rafli", source: "desktop", measurable: false, windows: [] }],
+    };
+    expect(summaryNarrative(desktop).join(" ")).toMatch(/Belum ada profil/);
   });
 
   it("calls the cost an API-price equivalent, never a bill", () => {

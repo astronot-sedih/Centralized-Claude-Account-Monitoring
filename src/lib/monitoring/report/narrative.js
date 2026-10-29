@@ -10,6 +10,24 @@
 // the team. A claim the data cannot support is left out rather than softened,
 // because a confident sentence is read as a finding.
 
+/**
+ * The profiles whose traffic Dakara Router actually measured today.
+ *
+ * A row counts only when it is `measurable` — the source says the traffic
+ * went through the router. A connection nobody has claimed carries no
+ * profile, so it is named by its account instead: "2 profil" when one of them
+ * is unattributed would overstate how much of the team is accounted for.
+ */
+function routerMeasuredProfiles(report) {
+  const names = new Set();
+  for (const r of report?.rows || []) {
+    if (!r?.measurable) continue;
+    const name = r.profile || r.account || r.email;
+    if (name) names.add(String(name));
+  }
+  return names;
+}
+
 const pct = (n) => `${Math.round(Number(n) || 0)}%`;
 const n0 = (n) => new Intl.NumberFormat("id-ID").format(Math.round(Number(n) || 0));
 const usd = (n) => {
@@ -46,14 +64,38 @@ export function summaryNarrative(report) {
     );
   }
 
-  // The gap between the two lenses is the single most useful sentence here:
-  // it is the number a decision made on Claude Code alone would miss.
-  if (act && web) {
-    const gap = (Number(act.mau.value) || 0) - (Number(web.activeUsers) || 0);
-    if (gap > 0) {
+  // Who is actually measured PER PERSON, and who is not.
+  //
+  // The comparison that matters is against DAKARA ROUTER, not against Claude
+  // Code. Claude Code usage on a claude.ai subscription is reported by
+  // Anthropic as an org total; it is the router that attributes tokens and
+  // cost to a named person, via the profile owning each connection. An
+  // earlier version compared the team against Claude Code users and called
+  // the difference "tidak terukur", which was wrong in both directions: it
+  // counted Claude Code users as measured when the router never saw them,
+  // and it ignored profiles entirely.
+  const measuredPeople = routerMeasuredProfiles(report);
+  if (act && measuredPeople.size >= 0) {
+    const total = Number(act.mau.value) || 0;
+    const covered = measuredPeople.size;
+    const gap = total - covered;
+
+    if (covered === 0) {
       out.push(
-        `${n0(gap)} orang memakai Claude tanpa lewat Claude Code — chat di web atau Desktop — ` +
-          `sehingga token dan biaya mereka tidak terukur per orang.`
+        `Belum ada profil yang koneksinya lewat Dakara Router, jadi token dan biaya ` +
+          `belum bisa diuraikan per orang untuk seluruh ${n0(total)} pengguna.`
+      );
+    } else if (gap > 0) {
+      out.push(
+        `Token dan biaya terurai per orang hanya untuk ${n0(covered)} profil yang ` +
+          `koneksinya lewat Dakara Router (${[...measuredPeople].join(", ")}). ` +
+          `${n0(gap)} pengguna lain memakai Claude langsung lewat web atau Desktop, ` +
+          `sehingga hanya terbaca persen kuotanya.`
+      );
+    } else {
+      out.push(
+        `Seluruh ${n0(total)} pengguna koneksinya lewat Dakara Router, jadi token dan ` +
+          `biaya terurai per orang.`
       );
     }
   }
