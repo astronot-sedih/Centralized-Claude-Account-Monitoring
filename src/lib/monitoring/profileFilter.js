@@ -38,8 +38,12 @@ export function filterStatsByProfile(stats, assignments = {}, profileId = "") {
   if (!stats || typeof stats !== "object") return stats;
   if (!stats.byAccount || typeof stats.byAccount !== "object") return stats;
 
-  const keep = Object.entries(stats.byAccount).filter(([connectionId]) => {
-    const assigned = assignments[connectionId];
+  // The key is "model (provider - accountName)" — usageRepo builds it that
+  // way, so one connection appears under several keys and none of them is an
+  // id. The connection is on the entry; falling back to the key keeps the
+  // function working for callers that do key by id.
+  const keep = Object.entries(stats.byAccount).filter(([key, entry]) => {
+    const assigned = assignments[entry?.connectionId || key];
     return profileId === UNASSIGNED ? !assigned : assigned === profileId;
   });
 

@@ -32,9 +32,22 @@ function UsageContent() {
 
   // The active workspace comes from the header switcher, so one control
   // drives Providers, Usage and the rest rather than a dropdown per page.
-  const { activeProfileId: profileId, assignments, load: loadProfiles, loaded } = useProfileStore();
+  const {
+    activeProfileId: profileId,
+    assignments,
+    profiles,
+    load: loadProfiles,
+    loaded,
+  } = useProfileStore();
+  const activeName = profiles.find((p) => p.id === profileId)?.name || null;
 
   useEffect(() => { if (!loaded) loadProfiles(); }, [loaded, loadProfiles]);
+
+  // The tab lives in the URL so a link to Details opens on Details.
+  const tabFromUrl = searchParams.get("tab");
+  const activeTab = tabFromUrl && ["overview", "logs", "details"].includes(tabFromUrl)
+    ? tabFromUrl
+    : "overview";
 
   const handleTabChange = (value) => {
     if (value === activeTab) return;
@@ -68,6 +81,17 @@ function UsageContent() {
           </div>
         )}
       </div>
+
+      {/* Which accounts these numbers cover. Without it a workspace with no
+          traffic is indistinguishable from a broken page, and a filtered
+          total looks like the team total. */}
+      {activeTab === "overview" && activeName ? (
+        <p className="-mt-3 text-[11px]" style={{ color: "var(--sev-info-text)" }}>
+          Workspace &quot;{activeName}&quot;:{" "}
+          {Object.values(assignments).filter((id) => id === profileId).length} akun
+          {" "}· monitoring &amp; laporan harian tetap memakai semua akun
+        </p>
+      ) : null}
 
       {activeTab === "overview" && (
         <Suspense fallback={<CardSkeleton />}>

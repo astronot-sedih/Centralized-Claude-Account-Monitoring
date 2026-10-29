@@ -108,3 +108,30 @@ describe("filterStatsByProfile — every total the payload carries", () => {
     expect(r.totalCost).toBe(0);
   });
 });
+
+describe("filterStatsByProfile on the real payload shape", () => {
+  // /api/usage/stats keys byAccount by "model (provider - accountName)", not
+  // by connection id — usageRepo builds accountKey that way. Matching the key
+  // against the assignment map drops every row, so a workspace with traffic
+  // reads as a workspace with none.
+  const real = {
+    totalRequests: 9,
+    totalCost: 3,
+    byAccount: {
+      "claude-opus-4 (claude - 3d)": { connectionId: "conn-a", requests: 6, cost: 2 },
+      "claude-sonnet-4 (claude - Account 2)": { connectionId: "conn-c", requests: 3, cost: 1 },
+    },
+  };
+
+  it("matches on the entry's connectionId", () => {
+    const r = filterStatsByProfile(real, { "conn-a": "p1" }, "p1");
+    expect(Object.keys(r.byAccount)).toEqual(["claude-opus-4 (claude - 3d)"]);
+    expect(r.totalRequests).toBe(6);
+  });
+
+  it("puts a row whose connection has no profile in the unassigned bucket", () => {
+    const r = filterStatsByProfile(real, { "conn-a": "p1" }, "__none__");
+    expect(Object.keys(r.byAccount)).toEqual(["claude-sonnet-4 (claude - Account 2)"]);
+    expect(r.totalRequests).toBe(3);
+  });
+});
