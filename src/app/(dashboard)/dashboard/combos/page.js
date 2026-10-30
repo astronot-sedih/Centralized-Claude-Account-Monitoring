@@ -10,6 +10,12 @@ import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useModelCaps } from "@/shared/hooks/useModelCaps";
 import { aggregateComboCapabilities } from "open-sse/providers/capabilities.js";
 import { resolveProviderId, AI_PROVIDERS } from "@/shared/constants/providers";
+import useProfileStore from "@/store/profileStore";
+import {
+  qualifyComboName,
+  displayComboName,
+  comboBelongsToProfile,
+} from "@/lib/monitoring/workspace";
 
 // Validate combo name: only a-z, A-Z, 0-9, -, _
 const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
@@ -68,6 +74,17 @@ function getPolicyBadgeLabel(strategy = {}) {
 
 export default function CombosPage() {
   const [combos, setCombos] = useState([]);
+  // The active workspace. A combo's STORED name carries its owner
+  // ("rafli:main") because routing resolves a combo by name alone — two
+  // combos called "main" would make that lookup ambiguous and a request
+  // could silently run on another person's accounts. The UI shows the bare
+  // name.
+  const {
+    activeProfileId,
+    profiles,
+    load: loadProfiles,
+    loaded: profilesLoaded,
+  } = useProfileStore();
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingCombo, setEditingCombo] = useState(null);
@@ -86,6 +103,8 @@ export default function CombosPage() {
     fetchData();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => { if (!profilesLoaded) loadProfiles(); }, [profilesLoaded, loadProfiles]);
+
   // Drop stale selection when the combo list changes (delete / refresh).
   useEffect(() => {
     const alive = new Set(combos.map((c) => c.id));
@@ -98,12 +117,25 @@ export default function CombosPage() {
   // Case-insensitive search over the combo name and its model ids, so both
   // "deepseek" and "deepseek-v4.1-flash" find the right rows.
   const normalizedQuery = searchQuery.trim().toLowerCase();
+
+  // Scope to the active workspace first, then search within it. An unprefixed
+  // combo belongs to EVERY workspace: combos made before workspaces existed
+  // must not disappear the moment someone creates their first one.
+  const activeProfile = profiles.find((p) => p.id === activeProfileId) || null;
+  const workspaceCombos = activeProfileId
+    ? combos.filter((c) => comboBelongsToProfile(c, activeProfile))
+    : combos;
+
   const filteredCombos = normalizedQuery
-    ? combos.filter((c) => {
-        if (String(c.name || "").toLowerCase().includes(normalizedQuery)) return true;
+    ? workspaceCombos.filter((c) => {
+        // Search the DISPLAYED name: the user never typed the prefix, so
+        // matching the stored one would make "main" miss "rafli:main".
+        if (displayComboName(c.name).toLowerCase().includes(normalizedQuery)) return true;
         return (c.models || []).some((m) => String(m).toLowerCase().includes(normalizedQuery));
       })
-    : combos;
+    : workspaceCombos;
+
+  const hiddenComboCount = combos.length - workspaceCombos.length;
 
   // Select-all follows the search: with a query active it must only reach the
   // rows on screen, otherwise the bulk Delete would take out hidden combos.
@@ -226,10 +258,13 @@ export default function CombosPage() {
 
   const handleCreate = async (data) => {
     try {
+      // Store the name under the active workspace, so two people can each
+      // have a "main" without the routing lookup becoming ambiguous.
+      const owner = profiles.find((p) => p.id === activeProfileId) || null;
       const res = await fetch("/api/combos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, name: qualifyComboName(data.name, owner) }),
       });
       if (res.ok) {
         await fetchData();
@@ -462,7 +497,16 @@ export default function CombosPage() {
       </div>
 
       {/* Combos List */}
-      {combos.length === 0 ? (
+      {/* What this workspace shows, and how many belong to others. Without
+          it a shorter list reads as combos that were deleted. */}
+      {activeProfile ? (
+        <p className="-mt-2 text-[11px]" style={{ color: "var(--sev-info-text)" }}>
+          Workspace &quot;{activeProfile.name}&quot;: {workspaceCombos.length} combo
+          {hiddenComboCount ? ` · ${hiddenComboCount} combo workspace lain disembunyikan` : ""}
+        </p>
+      ) : null}
+
+      {workspaceCombos.length === 0 ? (
         <Card>
           <div className="text-center py-12">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
@@ -499,7 +543,7 @@ export default function CombosPage() {
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               {normalizedQuery && (
                 <span className="text-xs text-text-muted">
-                  {filteredCombos.length} of {combos.length} shown
+                  {filteredCombos.length} of {workspaceCombos.length} shown
                 </span>
               )}
               {someSelected && (
@@ -687,7 +731,17 @@ function ComboCard({ combo, getCaps, comboByName = {}, activeProviders = [], cop
             <span className="material-symbols-outlined text-primary text-[18px]">layers</span>
           </div>
           <div className="min-w-0 flex-1">
-            <code className="block truncate font-mono text-sm font-medium">{combo.name}</code>
+            <code className="block truncate font-mono text-sm font-medium">
+              {displayComboName(combo.name)}
+            </code>
+            {displayComboName(combo.name) !== combo.name ? (
+              // The stored name is what a client sends as the model string;
+              // showing only the bare one would have people copying "main"
+              // and getting nothing back from routing.
+              <code className="block truncate font-mono text-[10.5px] text-text-muted">
+                model: {combo.name}
+              </code>
+            ) : null}
             <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1">
               {combo.models.length === 0 ? (
                 <span className="text-xs text-text-muted italic">No models</span>

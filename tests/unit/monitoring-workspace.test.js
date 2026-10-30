@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parseModel } from "open-sse/services/model.js";
 import {
   qualifyComboName, displayComboName, comboBelongsToProfile, PROFILE_SEP,
 } from "../../src/lib/monitoring/workspace.js";
@@ -240,5 +241,60 @@ describe("a new key is pinned to the workspace that made it", () => {
     // With several, guessing would put traffic on the wrong account
     // silently; with one there is nothing to decide.
     expect(src()).toMatch(/owned\.length === 1 \? owned\[0\]\.id : ""/);
+  });
+});
+
+describe("combos are namespaced by workspace", () => {
+  const read = (p) => require("node:fs").readFileSync(p, "utf8");
+  const page = () => read("../src/app/(dashboard)/dashboard/combos/page.js");
+
+  it("a prefixed name survives model parsing — only '/' splits", () => {
+    // Routing resolves a combo by name alone. If ":" split into
+    // provider/model, "rafli:main" would be looked up as model "main" against
+    // provider "rafli" and never resolve.
+    //
+    // Imported statically: loading it inside the test pulls the 40+ provider
+    // registry and exceeds the 5s timeout when the suite runs in parallel.
+    expect(parseModel("rafli:main")).toMatchObject({ provider: null, model: "rafli:main" });
+    expect(parseModel("claude/claude-opus-5").model).toBe("claude-opus-5");
+  });
+
+  it("the API accepts one colon but not two", async () => {
+    // Two colons would make the namespace boundary ambiguous.
+    const src = read("../src/app/api/combos/route.js");
+    const m = src.match(/const VALID_NAME_REGEX = (\/.*\/);/);
+    const re = new RegExp(m[1].slice(1, -1));
+    expect(re.test("rafli:main")).toBe(true);
+    expect(re.test("main")).toBe(true);
+    expect(re.test("a:b:c")).toBe(false);
+    expect(re.test("rafli/main")).toBe(false);
+  });
+
+  it("the rename route accepts what the create route does", async () => {
+    // A rename that rejected a name POST accepts would make a synced combo
+    // uneditable.
+    const post = read("../src/app/api/combos/route.js").match(/VALID_NAME_REGEX = (\/.*\/);/)[1];
+    const put = read("../src/app/api/combos/[id]/route.js").match(/VALID_NAME_REGEX = (\/.*\/);/)[1];
+    expect(put).toBe(post);
+  });
+
+  it("stores the qualified name but shows the bare one", () => {
+    expect(page()).toMatch(/qualifyComboName\(data\.name, owner\)/);
+    expect(page()).toMatch(/displayComboName\(combo\.name\)/);
+  });
+
+  it("still shows the full name as the model string to send", () => {
+    // A user who copied only "main" would get nothing back from routing.
+    expect(page()).toMatch(/model: \{combo\.name\}/);
+  });
+
+  it("searches the displayed name, not the stored one", () => {
+    // Nobody types the prefix, so matching the stored name would make "main"
+    // miss "rafli:main".
+    expect(page()).toMatch(/displayComboName\(c\.name\)\.toLowerCase\(\)\.includes\(normalizedQuery\)/);
+  });
+
+  it("counts against the workspace, not the whole database", () => {
+    expect(page()).toMatch(/of \{workspaceCombos\.length\} shown/);
   });
 });

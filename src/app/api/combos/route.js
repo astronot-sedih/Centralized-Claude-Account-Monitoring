@@ -3,8 +3,13 @@ import { getCombos, createCombo, getComboByName } from "@/lib/localDb";
 
 export const dynamic = "force-dynamic";
 
-// Validate combo name: only a-z, A-Z, 0-9, -, _
-const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+$/;
+// Validate combo name: only a-z, A-Z, 0-9, -, _, . and one ":" namespace.
+//
+// ":" is the workspace prefix ("rafli:main"). It is safe in a model string:
+// parseModel only gives meaning to "/", so a colon never splits into
+// provider/model. Allowing it is what lets two people each have a combo
+// called "main" without the routing lookup becoming ambiguous.
+const VALID_NAME_REGEX = /^[a-zA-Z0-9_.\-]+(:[a-zA-Z0-9_.\-]+)?$/;
 
 // GET /api/combos - Get all combos
 export async function GET() {
