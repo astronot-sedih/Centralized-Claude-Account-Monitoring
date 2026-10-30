@@ -38,6 +38,12 @@ export default function APIPageClient({ machineId }) {
   } = useProfileStore();
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  // Which Claude connection a NEW key is pinned to. Chosen rather than
+  // guessed when the workspace owns several: picking for the user would put
+  // half the team's traffic on the wrong account silently.
+  const [newKeyPin, setNewKeyPin] = useState("");
+  const [keyPinError, setKeyPinError] = useState(null);
+  const [claudeConnections, setClaudeConnections] = useState([]);
   const [newKeyName, setNewKeyName] = useState("");
   const [createdKey, setCreatedKey] = useState(null);
   const [confirmState, setConfirmState] = useState(null);
@@ -120,6 +126,27 @@ export default function APIPageClient({ machineId }) {
   }, []);
 
   useEffect(() => { if (!profilesLoaded) loadProfiles(); }, [profilesLoaded, loadProfiles]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/providers?provider=claude", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((d) => {
+        if (cancelled) return;
+        const list = (Array.isArray(d) ? d : d?.connections || []).filter(
+          (c) =>
+            c.provider === "claude" &&
+            c.isActive !== false &&
+            // A monitor-only connection is never routed to, so pinning a key
+            // to it would make that key dead on arrival — the pin is hard and
+            // does not fail over.
+            !c.providerSpecificData?.monitorOnly
+        );
+        setClaudeConnections(list);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   // Status poll: only while degraded (not yet reachable). Stop once healthy to avoid spam.
   // Visibility re-check: refresh once when tab becomes visible.
@@ -632,6 +659,19 @@ export default function APIPageClient({ machineId }) {
     }
   };
 
+  // Preselect the workspace's account when there is exactly one — with a
+  // single choice there is nothing to decide, and leaving it blank is how a
+  // key ends up attributed to nobody. With several, the user picks: guessing
+  // would put half the traffic on the wrong account silently.
+  const openAddKeyModal = () => {
+    setKeyPinError(null);
+    const owned = activeProfileId
+      ? claudeConnections.filter((c) => assignments?.[c.id] === activeProfileId)
+      : [];
+    setNewKeyPin(owned.length === 1 ? owned[0].id : "");
+    setShowAddModal(true);
+  };
+
   const handleCreateKey = async () => {
     if (!newKeyName.trim()) return;
 
@@ -644,9 +684,32 @@ export default function APIPageClient({ machineId }) {
       const data = await res.json();
 
       if (res.ok) {
+        // Pin the new key to the workspace it was created in, so it belongs
+        // to someone from the start. An unpinned key lands on whichever
+        // account selection picks, and every per-person figure in the report
+        // then names the wrong person.
+        //
+        // Pinning is a SECOND request on purpose: the key exists either way,
+        // so a failed pin loses the attribution, never the key itself.
+        if (newKeyPin) {
+          try {
+            const pinRes = await fetch(`/api/keys/${data.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ pinnedConnectionId: newKeyPin }),
+            });
+            if (!pinRes.ok) {
+              setKeyPinError("Key dibuat, tapi gagal dipin ke akun workspace. Pin manual di daftar di bawah.");
+            }
+          } catch {
+            setKeyPinError("Key dibuat, tapi gagal dipin ke akun workspace. Pin manual di daftar di bawah.");
+          }
+        }
+
         setCreatedKey(data.key);
         await fetchData();
         setNewKeyName("");
+        setNewKeyPin("");
         setShowAddModal(false);
       }
     } catch (error) {
@@ -777,6 +840,14 @@ export default function APIPageClient({ machineId }) {
     : keys.length;
   const unpinnedKeyCount = keys.filter((k) => !k.pinnedConnectionId).length;
   const hiddenKeyCount = keys.length - visibleKeyList.length;
+
+  // Routable connections this workspace owns. Monitor-only ones are already
+  // filtered out, so an empty list means the workspace genuinely has nothing
+  // a key could be pinned to — worth saying rather than offering an empty
+  // dropdown.
+  const pinnableForWorkspace = activeProfileId
+    ? claudeConnections.filter((c) => assignments?.[c.id] === activeProfileId)
+    : claudeConnections;
 
   return (
     <div className="flex flex-col gap-8">
@@ -1032,7 +1103,7 @@ export default function APIPageClient({ machineId }) {
             <span className="material-symbols-outlined text-primary">vpn_key</span>
             API Keys
           </h2>
-          <Button icon="add" onClick={() => setShowAddModal(true)}>
+          <Button icon="add" onClick={openAddKeyModal}>
             Create Key
           </Button>
         </div>
@@ -1067,6 +1138,19 @@ export default function APIPageClient({ machineId }) {
           </p>
         ) : null}
 
+        {keyPinError ? (
+          <p
+            className="mb-3 rounded border px-2.5 py-2 text-[11px]"
+            style={{
+              background: "var(--sev-medium-soft)",
+              borderColor: "var(--sev-medium-line)",
+              color: "var(--sev-medium-text)",
+            }}
+          >
+            {keyPinError}
+          </p>
+        ) : null}
+
         {keys.length === 0 ? (
           <div className="text-center py-12">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
@@ -1074,7 +1158,7 @@ export default function APIPageClient({ machineId }) {
             </div>
             <p className="text-text-main font-medium mb-1">No API keys yet</p>
             <p className="text-sm text-text-muted mb-4">Create your first API key to get started</p>
-            <Button icon="add" onClick={() => setShowAddModal(true)}>
+            <Button icon="add" onClick={openAddKeyModal}>
               Create Key
             </Button>
           </div>
@@ -1174,6 +1258,7 @@ export default function APIPageClient({ machineId }) {
         onClose={() => {
           setShowAddModal(false);
           setNewKeyName("");
+          setNewKeyPin("");
         }}
       >
         <div className="flex flex-col gap-4">
@@ -1183,6 +1268,44 @@ export default function APIPageClient({ machineId }) {
             onChange={(e) => setNewKeyName(e.target.value)}
             placeholder="Production Key"
           />
+
+          {/* Which account this key's traffic lands on. Offered at creation
+              because a key made without one is attributed to nobody, and the
+              report then names the wrong person for its usage. */}
+          <div className="flex flex-col gap-1">
+            <label htmlFor="new-key-pin" className="text-xs text-text-muted">
+              Akun Claude {activeProfileName ? `(workspace "${activeProfileName}")` : ""}
+            </label>
+            {pinnableForWorkspace.length ? (
+              <>
+                <select
+                  id="new-key-pin"
+                  value={newKeyPin}
+                  onChange={(e) => setNewKeyPin(e.target.value)}
+                  className="h-9 rounded-lg border border-black/10 bg-black/[0.02] px-2 text-sm text-text-primary dark:border-white/10 dark:bg-white/[0.03]"
+                >
+                  <option value="">Tanpa pin — berlaku di semua workspace</option>
+                  {pinnableForWorkspace.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name || c.email || c.id.slice(0, 8)}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-text-muted">
+                  {newKeyPin
+                    ? "Traffic key ini hanya ke akun tersebut, tanpa failover — supaya biayanya tercatat atas orang yang benar."
+                    : "Tanpa pin, traffic bisa mendarat di akun siapa saja dan biayanya tercatat atas orang yang salah."}
+                </p>
+              </>
+            ) : (
+              <p className="text-[11px] text-text-muted">
+                {activeProfileName
+                  ? `Workspace "${activeProfileName}" belum punya akun Claude yang bisa dirutekan. Klaim satu di halaman Providers lebih dulu.`
+                  : "Belum ada akun Claude aktif untuk dipin."}
+              </p>
+            )}
+          </div>
+
           <div className="flex gap-2">
             <Button onClick={handleCreateKey} fullWidth disabled={!newKeyName.trim()}>
               Create

@@ -213,3 +213,32 @@ describe("API keys are scoped by the connection they are pinned to", () => {
     expect(src).not.toMatch(/key\.profileId|profileId:\s*activeProfileId/);
   });
 });
+
+describe("a new key is pinned to the workspace that made it", () => {
+  const read = (p) => require("node:fs").readFileSync(p, "utf8");
+  const src = () => read("../src/app/(dashboard)/dashboard/endpoint/EndpointPageClient.js");
+
+  it("pins the key after creating it, as a separate request", () => {
+    // The key exists either way, so a failed pin must lose the attribution,
+    // never the key itself.
+    expect(src()).toMatch(/pinnedConnectionId: newKeyPin/);
+  });
+
+  it("says so when the pin failed instead of only logging it", () => {
+    // A key that silently stayed unpinned attributes its usage to nobody.
+    expect(src()).toMatch(/setKeyPinError/);
+    expect(src()).toMatch(/Pin manual di daftar di bawah/);
+  });
+
+  it("never offers a monitor-only connection", () => {
+    // Monitor-only connections are never routed to, so a key pinned to one
+    // is dead on arrival — the pin is hard and does not fail over.
+    expect(src()).toMatch(/!c\.providerSpecificData\?\.monitorOnly/);
+  });
+
+  it("preselects only when the workspace owns exactly one account", () => {
+    // With several, guessing would put traffic on the wrong account
+    // silently; with one there is nothing to decide.
+    expect(src()).toMatch(/owned\.length === 1 \? owned\[0\]\.id : ""/);
+  });
+});
