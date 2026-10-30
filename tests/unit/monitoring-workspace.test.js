@@ -159,3 +159,57 @@ describe("paginate", () => {
     expect(paginate([], 1, 6)).toEqual({ items: [], page: 1, pageCount: 1 });
   });
 });
+
+describe("API keys are scoped by the connection they are pinned to", () => {
+  // connectionId -> profileId, as /api/profiles returns it.
+  const assignments = { "conn-rafli": "p-rafli", "conn-dimas": "p-dimas" };
+  const keys = [
+    { id: "k1", name: "rafli key", pinnedConnectionId: "conn-rafli" },
+    { id: "k2", name: "dimas key", pinnedConnectionId: "conn-dimas" },
+    { id: "k3", name: "shared key", pinnedConnectionId: null },
+  ];
+
+  const ownerOf = async () => {
+    const { apiKeyProfileId } = await import("../../src/lib/monitoring/workspace.js");
+    return (k) => apiKeyProfileId(k, assignments);
+  };
+
+  it("shows a workspace its own keys plus the unpinned ones", async () => {
+    // An unpinned key can land on ANY account, so it is every workspace's
+    // business; hiding it would make it look deleted while it is still live.
+    const { scopeToProfile } = await import("../../src/lib/monitoring/workspace.js");
+    const ids = scopeToProfile(keys, await ownerOf(), "p-rafli").map((k) => k.id);
+    expect(ids).toEqual(["k1", "k3"]);
+  });
+
+  it("hides a key pinned to another workspace's account", async () => {
+    const { scopeToProfile } = await import("../../src/lib/monitoring/workspace.js");
+    const ids = scopeToProfile(keys, await ownerOf(), "p-dimas").map((k) => k.id);
+    expect(ids).not.toContain("k1");
+  });
+
+  it("shows every key when no workspace is selected", async () => {
+    const { scopeToProfile } = await import("../../src/lib/monitoring/workspace.js");
+    expect(scopeToProfile(keys, await ownerOf(), "")).toHaveLength(3);
+  });
+
+  it("treats a key pinned to an unclaimed connection as unowned", async () => {
+    // The connection exists but nobody has claimed it, so the key cannot be
+    // attributed either — and must not vanish from every workspace at once.
+    const { scopeToProfile } = await import("../../src/lib/monitoring/workspace.js");
+    const orphan = [{ id: "k4", pinnedConnectionId: "conn-unclaimed" }];
+    expect(scopeToProfile(orphan, await ownerOf(), "p-rafli")).toHaveLength(1);
+  });
+
+  it("never stores a key's workspace separately from its pin", () => {
+    // A second field could disagree with the pin — a key labelled "Dimas"
+    // pinned to Rafli's account — and then the report and the key list would
+    // name different people for the same traffic.
+    const src = require("node:fs").readFileSync(
+      "../src/app/(dashboard)/dashboard/endpoint/EndpointPageClient.js",
+      "utf8"
+    );
+    expect(src).toMatch(/apiKeyProfileId/);
+    expect(src).not.toMatch(/key\.profileId|profileId:\s*activeProfileId/);
+  });
+});

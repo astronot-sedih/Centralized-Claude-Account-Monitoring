@@ -14,6 +14,8 @@ import {
 } from "./endpointConstants";
 import { clientPingUrl, clientPingAny } from "./endpointPing";
 import useSettingsStore from "@/store/settingsStore";
+import useProfileStore from "@/store/profileStore";
+import { apiKeyProfileId, scopeToProfile } from "@/lib/monitoring/workspace";
 import EndpointRow from "./components/EndpointRow";
 import StatusAlert from "./components/StatusAlert";
 import Tooltip from "./components/Tooltip";
@@ -22,6 +24,18 @@ import KeyAccessControls from "./components/KeyAccessControls";
 import KeyPinControl from "./components/KeyPinControl";
 export default function APIPageClient({ machineId }) {
   const [keys, setKeys] = useState([]);
+  // The active workspace, from the header switcher. A key's workspace is
+  // INHERITED from the connection it is pinned to rather than stored
+  // separately: a second field could disagree with the pin — a key labelled
+  // "Dimas" pinned to Rafli's account — and then the report and the key list
+  // would name different people for the same traffic.
+  const {
+    activeProfileId,
+    profiles,
+    assignments,
+    load: loadProfiles,
+    loaded: profilesLoaded,
+  } = useProfileStore();
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
@@ -104,6 +118,8 @@ export default function APIPageClient({ machineId }) {
     fetchData();
     loadSettings();
   }, []);
+
+  useEffect(() => { if (!profilesLoaded) loadProfiles(); }, [profilesLoaded, loadProfiles]);
 
   // Status poll: only while degraded (not yet reachable). Stop once healthy to avoid spam.
   // Visibility re-check: refresh once when tab becomes visible.
@@ -747,6 +763,21 @@ export default function APIPageClient({ machineId }) {
 
   const currentEndpoint = baseUrl;
 
+  // Scope the key list to the active workspace.
+  //
+  // A key belongs to whichever workspace owns the connection it is PINNED
+  // to; an unpinned key has no owner and stays visible everywhere, because
+  // it can land on any account and hiding it would make it look deleted
+  // while it is still live and still spending someone's quota.
+  const activeProfileName = profiles.find((p) => p.id === activeProfileId)?.name || null;
+  const ownerOfKey = (k) => apiKeyProfileId(k, assignments);
+  const visibleKeyList = scopeToProfile(keys, ownerOfKey, activeProfileId);
+  const ownedKeyCount = activeProfileId
+    ? keys.filter((k) => ownerOfKey(k) === activeProfileId).length
+    : keys.length;
+  const unpinnedKeyCount = keys.filter((k) => !k.pinnedConnectionId).length;
+  const hiddenKeyCount = keys.length - visibleKeyList.length;
+
   return (
     <div className="flex flex-col gap-8">
       {/* Endpoint Card */}
@@ -1025,6 +1056,17 @@ export default function APIPageClient({ machineId }) {
           </div>
         )}
 
+        {/* Which keys the current workspace shows, and why some are hidden.
+            Without it, a shorter list reads as keys that were deleted. */}
+        {activeProfileName ? (
+          <p className="mb-3 text-[11px]" style={{ color: "var(--sev-info-text)" }}>
+            Workspace &quot;{activeProfileName}&quot;: {ownedKeyCount} key terikat ke akun
+            workspace ini
+            {unpinnedKeyCount ? ` + ${unpinnedKeyCount} belum dipin (berlaku di semua workspace)` : ""}
+            {hiddenKeyCount ? ` · ${hiddenKeyCount} key workspace lain disembunyikan` : ""}
+          </p>
+        ) : null}
+
         {keys.length === 0 ? (
           <div className="text-center py-12">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
@@ -1038,7 +1080,7 @@ export default function APIPageClient({ machineId }) {
           </div>
         ) : (
           <div className="flex flex-col">
-            {keys.map((key) => (
+            {visibleKeyList.map((key) => (
               <div
                 key={key.id}
                 className={`group flex items-start justify-between gap-3 py-3 border-b border-black/[0.03] dark:border-white/[0.03] last:border-b-0 ${key.isActive === false ? "opacity-60" : ""}`}
