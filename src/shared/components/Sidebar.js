@@ -38,9 +38,12 @@ const navItems = [
   // very units the report counts. Visible because tuning it changes the
   // numbers the upgrade case rests on.
   { href: "/dashboard/token-saver", label: "Token Saver", icon: "savings" },
+  // Combos are namespaced per workspace, so which combo a teammate routes
+  // through decides whose accounts their traffic lands on — and therefore
+  // whose name the report puts on it.
+  { href: "/dashboard/combos", label: "Combo", icon: "layers" },
   // Routing/tooling pages, not part of monitoring:
   // { href: "/dashboard/basic-chat", label: "Basic Chat", icon: "chat" },
-  // { href: "/dashboard/combos", label: "Combo & Vision Adapter", icon: "layers" },
   // { href: "/dashboard/pxpipe", label: "PXPIPE", icon: "image" },
   // { href: "/dashboard/cli-tools", label: "CLI Tools", icon: "terminal" },
 ];

@@ -30,6 +30,7 @@ describe("sidebar is scoped to monitoring and reporting", () => {
       "/dashboard/quota",        // live per-provider quota
       "/dashboard/endpoint",     // API keys + per-key account pinning
       "/dashboard/token-saver",  // RTK — moves the units the report counts
+      "/dashboard/combos",       // namespaced per workspace; decides whose accounts run
     ]));
   });
 
@@ -49,6 +50,13 @@ describe("sidebar is scoped to monitoring and reporting", () => {
     expect(liveHrefs).toContain("/dashboard/token-saver");
   });
 
+  it("keeps Combo visible — it decides whose accounts a request runs on", () => {
+    // Combos are namespaced per workspace, so the combo a teammate routes
+    // through picks the accounts, and therefore the name the report attaches
+    // to that usage.
+    expect(liveHrefs).toContain("/dashboard/combos");
+  });
+
   it("hides the System block, which is routing and media tooling", () => {
     expect(systemHidden).toBe(true);
   });
@@ -63,7 +71,7 @@ describe("sidebar is scoped to monitoring and reporting", () => {
   it("hides the routing-tool pages rather than deleting them", () => {
     // Hidden, not removed: the routes still work, several share components
     // with pages we keep, and restoring one is a one-line change.
-    for (const gone of ["combos", "cli-tools", "proxy-pools",
+    for (const gone of ["cli-tools", "proxy-pools",
                         "skills", "console-log", "translator", "basic-chat"]) {
       expect(liveHrefs, `${gone} should not be in the nav`)
         .not.toContain(`/dashboard/${gone}`);

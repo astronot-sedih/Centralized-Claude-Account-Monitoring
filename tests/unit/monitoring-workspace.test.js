@@ -298,3 +298,16 @@ describe("combos are namespaced by workspace", () => {
     expect(page()).toMatch(/of \{workspaceCombos\.length\} shown/);
   });
 });
+
+describe("the Copy button hands over a routable name", () => {
+  it("copies the stored name, not the displayed one", () => {
+    // Copy exists so a user can paste the string into a client as the model.
+    // Copying the bare "main" would paste something routing cannot resolve.
+    const src = require("node:fs").readFileSync(
+      "../src/app/(dashboard)/dashboard/combos/page.js",
+      "utf8"
+    );
+    expect(src).toMatch(/onCopy\(combo\.name,/);
+    expect(src).not.toMatch(/onCopy\(displayComboName/);
+  });
+});
