@@ -46,6 +46,11 @@ export async function GET(request) {
       error: r.error,
       startDate,
       dataAsOf: r.dataAsOf,
+      // The day the per-member figures actually describe. Anthropic refuses
+      // any date after yesterday UTC and often lags a further day, so this is
+      // not the date the caller asked for and must not be presented as it.
+      activityDate: r.activityDate || null,
+      targetDate: r.targetDate || null,
       overview: normalizeActivityOverview(r.overview),
       cowork: normalizeCoworkOverview(r.cowork),
       members: normalizeMembers(r.members),

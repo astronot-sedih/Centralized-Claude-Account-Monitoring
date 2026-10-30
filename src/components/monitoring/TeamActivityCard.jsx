@@ -36,7 +36,10 @@ export default function TeamActivityCard() {
   if (loading) return <p className="py-6 text-sm opacity-60">Memuat adopsi tim…</p>;
   if (!data || data.configured === false) return null;
 
-  const { overview, cowork, members = [], series = [], fileCategories = [], error, ok, dataAsOf } = data;
+  const {
+    overview, cowork, members = [], series = [], fileCategories = [],
+    error, ok, dataAsOf, activityDate,
+  } = data;
 
   return (
     <section className="rounded-xl border px-4 py-4" style={{ borderColor: "var(--line-soft)" }}>
@@ -46,7 +49,12 @@ export default function TeamActivityCard() {
           <p className="text-[11px] opacity-60">
             Dari analytics organisasi claude.ai — mencakup chat, Cowork, dan Claude Code
             untuk seluruh anggota, termasuk yang tidak lewat router.
-            {dataAsOf ? ` Data per ${dataAsOf}.` : ""}
+            {/* The day these numbers describe. Anthropic refuses any date
+                after yesterday UTC and often lags a further day, so showing
+                the report's own date would date them a day or two early. */}
+            {activityDate ? ` Angka per ${activityDate}` : ""}
+            {dataAsOf && dataAsOf !== activityDate ? ` (data terbaru ${dataAsOf})` : ""}
+            {activityDate ? "." : ""}
           </p>
         </div>
         <button

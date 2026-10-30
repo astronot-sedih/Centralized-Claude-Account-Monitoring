@@ -562,3 +562,62 @@ describe("the per-person table asks for enough rows", () => {
     expect(seen).toContain("limit=50");
   });
 });
+
+describe("the activity date is clamped to what the API has", () => {
+  it("never asks for today — the API refuses it", async () => {
+    // "Data is only available through yesterday (UTC); the requested window
+    // starts after that" is a 400, and a 400 makes the whole section read as
+    // broken rather than as not-yet-available.
+    const { latestAvailableDate } = await import("../../src/lib/monitoring/claudeWeb/activity.js");
+    const now = new Date("2026-10-30T07:00:00Z");
+    expect(latestAvailableDate(null, now)).toBe("2026-10-29");
+  });
+
+  it("follows the organization's own lag when it reports one", async () => {
+    // The pipeline is often a further day behind yesterday; asking past it
+    // returns an empty day that reads as "nobody worked".
+    const { latestAvailableDate } = await import("../../src/lib/monitoring/claudeWeb/activity.js");
+    const now = new Date("2026-10-30T07:00:00Z");
+    expect(latestAvailableDate("2026-10-28", now)).toBe("2026-10-28");
+  });
+
+  it("ignores a data_as_of that is somehow ahead of yesterday", async () => {
+    const { latestAvailableDate } = await import("../../src/lib/monitoring/claudeWeb/activity.js");
+    const now = new Date("2026-10-30T07:00:00Z");
+    expect(latestAvailableDate("2026-11-05", now)).toBe("2026-11-05");
+  });
+
+  it("uses the overview's date for the per-day calls", async () => {
+    // The overview ignores start_date and answers for its latest day, so it
+    // is the only reliable source for which day to ask the others about.
+    const { fetchActivity } = await import("../../src/lib/monitoring/claudeWeb/activity.js");
+    const seen = [];
+    await fetchActivity({
+      orgId: "o", cookie: "sessionKey=x", startDate: "2026-10-30", configured: true,
+      now: new Date("2026-10-30T07:00:00Z"),
+      fetchImpl: async (url) => {
+        seen.push(url);
+        return url.includes("/activity/overview")
+          ? { ok: true, json: async () => ({ data_as_of: "2026-10-28", target_date: "2026-10-29", dau: { value: 8 } }) }
+          : { ok: true, json: async () => ({}) };
+      },
+    });
+    const dated = seen.filter((u) => u.includes("start_date="));
+    expect(dated.length).toBeGreaterThan(0);
+    for (const u of dated) expect(u).toContain("start_date=2026-10-28");
+  });
+
+  it("reports the day its figures describe, not the day requested", async () => {
+    const { fetchActivity } = await import("../../src/lib/monitoring/claudeWeb/activity.js");
+    const r = await fetchActivity({
+      orgId: "o", cookie: "sessionKey=x", startDate: "2026-10-30", configured: true,
+      now: new Date("2026-10-30T07:00:00Z"),
+      fetchImpl: async (url) =>
+        url.includes("/activity/overview")
+          ? { ok: true, json: async () => ({ data_as_of: "2026-10-28", target_date: "2026-10-29" }) }
+          : { ok: true, json: async () => ({}) },
+    });
+    expect(r.activityDate).toBe("2026-10-28");
+    expect(r.targetDate).toBe("2026-10-29");
+  });
+});

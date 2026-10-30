@@ -106,6 +106,27 @@ export function fetchCoworkFileCategories({ orgId, startDate, ...rest }) {
  * Partial success is reported rather than discarded: knowing the team is 90%
  * utilized is worth showing even when the per-member call failed.
  */
+/**
+ * The latest day the activity endpoints will answer for.
+ *
+ * They refuse a date after yesterday UTC — "Data is only available through
+ * yesterday (UTC); the requested window starts after that" — so asking for
+ * today returns a 400 and the whole section reads as broken. The pipeline is
+ * also often a further day behind, which is why this clamps to the
+ * organization's own `data_as_of` when the overview reports one.
+ *
+ * @param {string|null} reportedAsOf the overview's data_as_of
+ * @param {Date} now
+ * @returns {string} YYYY-MM-DD
+ */
+export function latestAvailableDate(reportedAsOf, now = new Date()) {
+  const yesterday = new Date(now.getTime() - 86400000).toISOString().slice(0, 10);
+  const asOf = /^\d{4}-\d{2}-\d{2}$/.test(String(reportedAsOf || "")) ? reportedAsOf : null;
+  // The earlier of the two: asking past either end is a 400 or an empty day.
+  if (asOf && asOf < yesterday) return asOf;
+  return asOf || yesterday;
+}
+
 export async function fetchActivity(opts) {
   if (opts?.configured === false) {
     return {
@@ -116,12 +137,19 @@ export async function fetchActivity(opts) {
     };
   }
 
-  const [overview, cowork, users, series, files] = await Promise.all([
-    fetchActivityOverview(opts),
-    fetchCoworkOverview(opts),
-    fetchActivityUsers(opts),
-    fetchActivityTimeseries({ ...opts, metric: "dau", days: 30 }),
-    fetchCoworkFileCategories(opts),
+  // The overview ignores start_date and always answers for the latest day it
+  // has, so it is asked FIRST and its data_as_of becomes the date for the
+  // per-day calls. Without that the per-member table silently came back
+  // empty whenever the caller passed a date the pipeline had not reached.
+  const overview = await fetchActivityOverview(opts);
+  const dayDate = latestAvailableDate(overview.data?.data_as_of, opts?.now);
+  const dayOpts = { ...opts, startDate: dayDate };
+
+  const [cowork, users, series, files] = await Promise.all([
+    fetchCoworkOverview(dayOpts),
+    fetchActivityUsers(dayOpts),
+    fetchActivityTimeseries({ ...dayOpts, metric: "dau", days: 30 }),
+    fetchCoworkFileCategories(dayOpts),
   ]);
 
   const errors = [overview, cowork, users, series, files]
@@ -140,6 +168,10 @@ export async function fetchActivity(opts) {
     memberTotal: users.data?.total ?? null,
     medianSpendUsd: users.data?.median_spend_us_dollars ?? null,
     dataAsOf: overview.data?.data_as_of || users.data?.data_as_of || null,
+    // The day the per-member figures describe, which is NOT the report's
+    // date: Anthropic's pipeline runs a day or more behind.
+    activityDate: dayDate,
+    targetDate: overview.data?.target_date || null,
     series: series.data?.data_points || [],
     fileCategories: files.data?.categories || [],
     fileOperationTotal: files.data?.total_file_operation_count ?? null,
