@@ -45,7 +45,7 @@ export function claudeWebSettingsFromEnv(env = process.env) {
 }
 
 /** Query string shared by both endpoints. */
-export function metricsQuery({ orgId, startDate, endDate, granularity = "daily" }) {
+export function metricsQuery({ orgId, startDate, endDate, granularity = "daily", limit }) {
   const p = new URLSearchParams({
     start_date: startDate,
     end_date: endDate,
@@ -54,6 +54,10 @@ export function metricsQuery({ orgId, startDate, endDate, granularity = "daily" 
     customer_type: "claude_ai",
     subscription_type: "team",
   });
+  // The users endpoint defaults to 5 rows and reports the real count in
+  // `pagination.total`, so a team of 9 silently showed 5 — a short list that
+  // looks complete is worse than an obviously truncated one.
+  if (limit) p.set("limit", String(limit));
   return p.toString();
 }
 
@@ -64,8 +68,8 @@ export function metricsQuery({ orgId, startDate, endDate, granularity = "daily" 
  * degrade this section, not take down the daily report that the rest of the
  * team's numbers live in.
  */
-async function get(path, { orgId, cookie, startDate, endDate, granularity, fetchImpl = fetch }) {
-  const url = `${BASE}/${path}?${metricsQuery({ orgId, startDate, endDate, granularity })}`;
+async function get(path, { orgId, cookie, startDate, endDate, granularity, limit, fetchImpl = fetch }) {
+  const url = `${BASE}/${path}?${metricsQuery({ orgId, startDate, endDate, granularity, limit })}`;
   try {
     const res = await fetchImpl(url, {
       headers: {
@@ -97,9 +101,14 @@ export function fetchOverview(opts) {
   return get("overview", opts);
 }
 
-/** Per-person cost and activity. */
+/**
+ * Per-person cost and activity.
+ *
+ * `limit` defaults to 10: the endpoint's own default is 5, which is fewer
+ * than this organization has, so the table would quietly omit people.
+ */
 export function fetchUsers(opts) {
-  return get("users", opts);
+  return get("users", { limit: 10, ...opts });
 }
 
 /**

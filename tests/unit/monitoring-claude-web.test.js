@@ -462,3 +462,103 @@ describe("charts in the report", () => {
     expect(html).toMatch(/Pengguna aktif harian/);
   });
 });
+
+describe("Cowork and file categories in the report", () => {
+  const withCowork = {
+    dateKey: "2026-10-30", rows: [], summary: {}, coverage: {}, footnotes: [],
+    claudeWeb: {
+      activity: {
+        overview: { utilization: { value: 90 }, dau: { value: 8 }, wau: { value: 9 }, mau: { value: 9 }, totalMembers: 10 },
+        members: [{ email: "a@x.io", chats: 1, chatMessages: 2, coworkSessions: 3, codeSessions: 4, daysActive: 5 }],
+        series: [{ date: "2026-10-29", value: 8 }],
+        cowork: {
+          sessionsPerDay: { value: 6, changePercent: 0 },
+          fileOperationsPerDay: { value: 56, changePercent: -6.67 },
+          fileEditsPerDay: { value: 0, changePercent: -100 },
+          usersWithSessionsPercent: { value: 50, changePercent: 25 },
+          dataAsOf: "2026-10-29",
+        },
+        fileCategories: [
+          { category: "Documents & reports", count: 2224, share: 0.3296 },
+          { category: "Code & scripts", count: 2200, share: 0.326 },
+        ],
+        fileOperationTotal: 6748,
+      },
+    },
+  };
+
+  it("renders the Cowork rates in both parts", async () => {
+    const { renderReportText } = await import("../../src/lib/monitoring/report/renderText.js");
+    const { renderReportHtml } = await import("../../src/lib/monitoring/report/renderHtml.js");
+    expect(renderReportText(withCowork)).toMatch(/COWORK/);
+    expect(renderReportText(withCowork)).toMatch(/Operasi file\/hari 56/);
+    expect(renderReportHtml(withCowork)).toMatch(/COWORK/);
+  });
+
+  it("renders the file-type mix with its total", async () => {
+    const { renderReportText } = await import("../../src/lib/monitoring/report/renderText.js");
+    const out = renderReportText(withCowork);
+    expect(out).toMatch(/JENIS FILE YANG DISENTUH COWORK/);
+    expect(out).toMatch(/Documents & reports/);
+    expect(out).toMatch(/6\.748 operasi/);
+  });
+
+  it("omits each block when its data is absent", async () => {
+    // A heading over an empty table invites the reader to conclude the
+    // activity was zero.
+    const { renderReportHtml } = await import("../../src/lib/monitoring/report/renderHtml.js");
+    const bare = {
+      ...withCowork,
+      claudeWeb: { activity: { ...withCowork.claudeWeb.activity, cowork: null, fileCategories: [] } },
+    };
+    const html = renderReportHtml(bare);
+    expect(html).not.toMatch(/COWORK/);
+    expect(html).not.toMatch(/JENIS FILE/);
+  });
+
+  it("shows no delta when the API gave no comparison", async () => {
+    // "no comparison available" and "unchanged" are different claims.
+    const { renderReportText } = await import("../../src/lib/monitoring/report/renderText.js");
+    const nulls = {
+      ...withCowork,
+      claudeWeb: {
+        activity: {
+          ...withCowork.claudeWeb.activity,
+          cowork: { ...withCowork.claudeWeb.activity.cowork, sessionsPerDay: { value: 6, changePercent: null } },
+        },
+      },
+    };
+    expect(renderReportText(nulls)).toMatch(/Sesi\/hari 6 {3}Operasi/);
+  });
+
+  it("builds the category bars from table cells, not images", async () => {
+    const { renderReportHtml } = await import("../../src/lib/monitoring/report/renderHtml.js");
+    const html = renderReportHtml(withCowork);
+    expect(html).toMatch(/Documents & reports|Documents &amp; reports/);
+    expect(html).not.toMatch(/<img[^>]+src=["']https?:/i);
+  });
+});
+
+describe("the per-person table asks for enough rows", () => {
+  it("requests more than the endpoint's default of five", async () => {
+    // The users endpoint returns 5 unless asked otherwise, which is fewer
+    // than this team has — a short list that looks complete.
+    const { fetchUsers } = await import("../../src/lib/monitoring/claudeWeb/client.js");
+    let seen = "";
+    await fetchUsers({
+      orgId: "o", cookie: "sessionKey=x", startDate: "2026-10-01", endDate: "2026-10-31",
+      fetchImpl: async (url) => { seen = url; return { ok: true, json: async () => ({}) }; },
+    });
+    expect(seen).toContain("limit=10");
+  });
+
+  it("lets the caller override the limit", async () => {
+    const { fetchUsers } = await import("../../src/lib/monitoring/claudeWeb/client.js");
+    let seen = "";
+    await fetchUsers({
+      orgId: "o", cookie: "sessionKey=x", startDate: "2026-10-01", endDate: "2026-10-31", limit: 50,
+      fetchImpl: async (url) => { seen = url; return { ok: true, json: async () => ({}) }; },
+    });
+    expect(seen).toContain("limit=50");
+  });
+});

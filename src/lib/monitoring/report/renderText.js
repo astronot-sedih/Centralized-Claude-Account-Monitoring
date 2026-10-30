@@ -234,6 +234,48 @@ export function renderReportText(report) {
       );
     }
     out.push(...chartLines(act.series, { label: "  Pengguna aktif harian", fmt: (v) => `${fmtNum(v)} orang` }));
+
+    // What the team DOES with Claude. Session counts alone do not say it, and
+    // a manager reads "2.224 operasi file dokumen" differently from "199 sesi".
+    const cw = act.cowork;
+    if (cw) {
+      out.push("");
+      out.push("  COWORK" + (cw.dataAsOf ? `, per ${cw.dataAsOf}` : ""));
+      const d = (m) => (m?.changePercent == null ? "" : ` (${m.changePercent >= 0 ? "+" : ""}${Math.round(m.changePercent)}%)`);
+      out.push(
+        `    Sesi/hari ${fmtNum(cw.sessionsPerDay.value)}${d(cw.sessionsPerDay)}` +
+          `   Operasi file/hari ${fmtNum(cw.fileOperationsPerDay.value)}${d(cw.fileOperationsPerDay)}`
+      );
+      out.push(
+        `    Edit file/hari ${fmtNum(cw.fileEditsPerDay.value)}${d(cw.fileEditsPerDay)}` +
+          `   Anggota pakai Cowork ${cw.usersWithSessionsPercent.value}%${d(cw.usersWithSessionsPercent)}`
+      );
+    }
+
+    // Top six only: the tail is a long list of single-digit categories that
+    // would push the tables below it off a phone screen.
+    const cats = act.fileCategories || [];
+    if (cats.length) {
+      out.push("");
+      out.push(
+        "  JENIS FILE YANG DISENTUH COWORK" +
+          (act.fileOperationTotal ? ` — ${fmtNum(act.fileOperationTotal)} operasi` : "")
+      );
+      const W4 = { cat: 32, bar: 16, pct: 5 };
+      const top = cats.slice(0, 6);
+      // Relative to the biggest category, not to 100%: with a long tail
+      // nothing reaches a third, and every bar would be the same stub.
+      const maxShare = Math.max(...top.map((x) => Number(x.share) || 0), 0.0001);
+      for (const x of top) {
+        const n = Math.max(1, Math.round(((Number(x.share) || 0) / maxShare) * W4.bar));
+        out.push(
+          "    " + pad(x.category, W4.cat) +
+            "  " + "#".repeat(n).padEnd(W4.bar) +
+            "  " + pad(`${Math.round((Number(x.share) || 0) * 100)}%`, W4.pct, true) +
+            "  " + fmtNum(x.count)
+        );
+      }
+    }
   } else if (report?.claudeWeb?.activityError) {
     out.push("");
     out.push(`ADOPSI TIM: tidak terbaca — ${report.claudeWeb.activityError}`);

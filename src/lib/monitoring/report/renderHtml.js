@@ -178,6 +178,81 @@ function chart(points, { label, fmt = (v) => String(v), height = 44, valueKey = 
 </table>`;
 }
 
+/**
+ * Cowork rates and the file-type mix.
+ *
+ * What the team DOES with Claude, which session counts alone do not say: a
+ * manager asking whether a plan is worth upgrading reads "2.224 operasi file
+ * dokumen" differently from "199 sesi".
+ *
+ * Each block appears only when its data does. A heading over an empty table
+ * invites the reader to conclude the activity was zero.
+ */
+function coworkBlock(act) {
+  const c = act?.cowork;
+  const cats = act?.fileCategories || [];
+  if (!c && !cats.length) return "";
+
+  const rate = (label, m, suffix = "") => {
+    if (!m) return "";
+    const d = m.changePercent;
+    // A null change means no comparison was available, which is not the same
+    // claim as "unchanged" — so it shows nothing rather than 0%.
+    const delta =
+      d == null
+        ? ""
+        : `<div style="font-family:${T.fontLabel};font-size:10px;color:${d >= 0 ? SEV_TOKENS.low.text : SEV_TOKENS.high.text}">${d >= 0 ? "+" : ""}${Math.round(d)}%</div>`;
+    return `<td style="padding:8px 10px;border:1px solid ${T.line};background:${T.surface}">
+      <div style="font-family:${T.fontLabel};font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:${T.muted}">${esc(label)}</div>
+      <div style="font-family:${T.fontDisplay};font-size:16px;font-weight:600;color:${T.ink}">${esc(fmtNum(m.value))}${esc(suffix)}</div>
+      ${delta}
+    </td>`;
+  };
+
+  const rates = c
+    ? `<div style="font-family:${T.fontLabel};font-size:11px;color:${T.muted};margin:14px 0 6px 0">COWORK${c.dataAsOf ? `, per ${esc(c.dataAsOf)}` : ""}</div>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse"><tr>${
+        rate("Sesi/hari", c.sessionsPerDay) +
+        rate("Operasi file/hari", c.fileOperationsPerDay) +
+        rate("Edit file/hari", c.fileEditsPerDay) +
+        rate("Anggota pakai Cowork", c.usersWithSessionsPercent, "%")
+      }</tr></table>`
+    : "";
+
+  // Top six only: the tail is a long list of single-digit categories that
+  // pushes the tables below it off a phone screen.
+  const top = cats.slice(0, 6);
+  // Relative to the biggest category, not to 100%: with a long tail nothing
+  // reaches a third, and every bar would be the same stub.
+  const maxShare = Math.max(...top.map((x) => Number(x.share) || 0), 0.0001);
+  const bars = cats.length
+    ? `<div style="font-family:${T.fontLabel};font-size:11px;color:${T.muted};margin:14px 0 6px 0">JENIS FILE YANG DISENTUH COWORK${
+        act.fileOperationTotal ? ` — ${esc(fmtNum(act.fileOperationTotal))} operasi` : ""
+      }</div>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background:${T.surface};border:1px solid ${T.line};border-radius:${T.radius}">
+  <tbody>${top
+    .map(
+      (x) =>
+        `<tr>${td(`<span style="font-size:12px">${esc(x.category)}</span>`)}${td(
+          // A bar drawn from a table cell, so it survives a mail client that
+          // runs no JavaScript and blocks remote images.
+          `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse"><tr><td width="${Math.max(
+            2,
+            Math.round(((Number(x.share) || 0) / maxShare) * 160)
+          )}" style="background:${SEV_TOKENS.info.dot};height:8px;border-radius:2px;line-height:1px;font-size:1px">&nbsp;</td></tr></table>`
+        )}${td(`${Math.round((Number(x.share) || 0) * 100)}%`, "right", `font-family:${T.fontDisplay}`)}${td(
+          esc(fmtNum(x.count)),
+          "right",
+          `font-family:${T.fontDisplay};color:${T.ink2}`
+        )}</tr>`
+    )
+    .join("")}</tbody>
+</table>`
+    : "";
+
+  return rates + bars;
+}
+
 function sourceChip(source) {
   const proxied = source === "9router";
   const sev = proxied ? SEV_TOKENS.low : SEV_TOKENS.info;
@@ -299,7 +374,8 @@ ${chart(act.series, { label: "Pengguna aktif harian", fmt: (v) => `${fmtNum(v)} 
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background:${T.surface};border:1px solid ${T.line};border-radius:${T.radius};margin-top:10px">
   <thead><tr>${th("Anggota")}${th("Chat", "right")}${th("Pesan", "right")}${th("Sesi Cowork", "right")}${th("Sesi Code", "right")}${th("Hari aktif", "right")}</tr></thead>
   <tbody>${rows3 || `<tr>${td(`<span style="color:${T.muted}">Belum ada data.</span>`)}</tr>`}</tbody>
-</table>`;
+</table>
+${coworkBlock(act)}`;
       })()
     : report?.claudeWeb?.activityError
       ? banner("medium", "Data adopsi tim tidak terbaca", String(report.claudeWeb.activityError))

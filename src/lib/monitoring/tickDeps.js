@@ -19,6 +19,8 @@ import {
   normalizeMembers,
   normalizeSeries,
   normalizeTimeseries,
+  normalizeCoworkOverview,
+  normalizeFileCategories,
 } from "./claudeWeb/normalize.js";
 import { buildReport } from "./report/buildReport.js";
 import { collectOnce } from "./quotaCollector.js";
@@ -114,6 +116,11 @@ export async function assembleReport(dateKey, timeZone) {
             overview: normalizeActivityOverview(a.overview),
             members: normalizeMembers(a.members),
             series: normalizeTimeseries(a.series),
+            // Cowork rates and the file-type mix: what the team actually
+            // DOES with Claude, which the session counts alone do not say.
+            cowork: normalizeCoworkOverview(a.cowork),
+            fileCategories: normalizeFileCategories(a.fileCategories),
+            fileOperationTotal: a.fileOperationTotal ?? null,
             dataAsOf: a.dataAsOf,
           }
         : null,
