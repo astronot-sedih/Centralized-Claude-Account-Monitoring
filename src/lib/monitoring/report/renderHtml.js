@@ -417,7 +417,7 @@ ${coworkBlock(act)}`;
           .join("");
 
         return `<div style="font-family:${T.fontLabel};font-size:11px;color:${T.muted};margin:18px 0 6px 0">
-  PEMAKAIAN LEWAT WEB &amp; DESKTOP — dari analytics organisasi claude.ai${web.range ? `, ${esc(web.range.startDate)} s/d ${esc(web.range.endDate)}` : ""}
+  PEMAKAIAN CLAUDE CODE — biaya per orang, dari analytics claude.ai${web.range ? `, ${esc(web.range.startDate)} s/d ${esc(web.range.endDate)}` : ""}
 </div>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin:0 0 8px 0"><tr>${tiles}</tr></table>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background:${T.surface};border:1px solid ${T.line};border-radius:${T.radius}">

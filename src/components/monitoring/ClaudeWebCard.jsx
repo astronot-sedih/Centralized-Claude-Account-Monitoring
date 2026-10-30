@@ -173,7 +173,7 @@ function Shell({ children, range, onRefresh }) {
     <section className="rounded-xl border px-4 py-4" style={{ borderColor: "var(--line-soft)" }}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 className="text-sm font-semibold">Pemakaian lewat Web &amp; Desktop</h2>
+          <h2 className="text-sm font-semibold">Pemakaian Claude Code (biaya per orang)</h2>
           <p className="text-[11px] opacity-60">
             Dari analytics organisasi claude.ai — mencakup akun yang tidak lewat router.
             {range ? ` ${range.startDate} s/d ${range.endDate}.` : ""}

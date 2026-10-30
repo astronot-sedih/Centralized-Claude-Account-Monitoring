@@ -247,7 +247,7 @@ export function buildReport(input) {
       // Only when the section is present. A note about a table that is not
       // there would send the reader looking for it.
       ...(claudeWeb?.summary
-        ? ["Bagian \"Web & Desktop\" berasal dari analytics organisasi claude.ai dan mencakup pemakaian yang TIDAK lewat router ini."]
+        ? ["Bagian \"Pemakaian Claude Code\" hanya mencakup Claude Code — chat di web dan Desktop tidak punya rincian biaya per orang. Lihat \"Adopsi Tim\" untuk pemakaian chat."]
         : []),
     ],
   };

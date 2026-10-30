@@ -88,7 +88,7 @@ describe("renderReportText — reset times are local", () => {
   });
 });
 
-describe("web & desktop section", () => {
+describe("Claude Code per-person section", () => {
   const web = {
     ok: true,
     range: { startDate: "2026-10-01", endDate: "2026-10-29" },
@@ -99,7 +99,7 @@ describe("web & desktop section", () => {
   it("renders the per-person figures the proxy cannot see", async () => {
     const { renderReportText: renderText } = await import("../../src/lib/monitoring/report/renderText.js");
     const out = renderText({ dateKey: "2026-10-29", rows: [], summary: {}, coverage: {}, claudeWeb: web });
-    expect(out).toMatch(/WEB & DESKTOP/);
+    expect(out).toMatch(/PEMAKAIAN CLAUDE CODE/);
     expect(out).toMatch(/a@x\.io/);
     expect(out).toMatch(/\$1548\.81|\$1,548\.81/);
   });
@@ -119,6 +119,6 @@ describe("web & desktop section", () => {
   it("leaves the section out entirely when the integration is off", async () => {
     const { renderReportText: renderText } = await import("../../src/lib/monitoring/report/renderText.js");
     const out = renderText({ dateKey: "2026-10-29", rows: [], summary: {}, coverage: {} });
-    expect(out).not.toMatch(/WEB & DESKTOP/);
+    expect(out).not.toMatch(/PEMAKAIAN CLAUDE CODE/);
   });
 });

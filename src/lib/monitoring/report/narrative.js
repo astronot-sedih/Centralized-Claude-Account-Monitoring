@@ -28,6 +28,23 @@ function routerMeasuredProfiles(report) {
   return names;
 }
 
+/**
+ * Members who use Claude but never through Claude Code.
+ *
+ * These are exactly the people the cost table cannot price: Anthropic
+ * publishes no per-person cost for chat or Cowork on a Team plan. Counting
+ * them from the ACTIVITY rows rather than subtracting two totals keeps the
+ * claim checkable — a reader can find each of them in the Adopsi Tim table.
+ */
+function chatOnlyMembers(report) {
+  const members = report?.claudeWeb?.activity?.members || [];
+  return members.filter((m) => {
+    const code = Number(m?.codeSessions) || 0;
+    const other = (Number(m?.chatMessages) || 0) + (Number(m?.coworkSessions) || 0);
+    return code === 0 && other > 0;
+  });
+}
+
 const pct = (n) => `${Math.round(Number(n) || 0)}%`;
 const n0 = (n) => new Intl.NumberFormat("id-ID").format(Math.round(Number(n) || 0));
 const usd = (n) => {
@@ -62,6 +79,29 @@ export function summaryNarrative(report) {
       `Pemakaian Claude Code tercatat ${n0(web.totalSessions)} sesi oleh ${n0(web.activeUsers)} orang, ` +
         `setara ${usd(web.totalCostUsd)} bila dihitung dengan harga API.`
     );
+
+    // Which products the money figure covers, and which it does not.
+    //
+    // The per-person cost table is fed by /api/claude_code/metrics_aggs —
+    // Claude Code ONLY. Anthropic publishes no per-person cost for chat or
+    // Cowork on a Team plan, so the people who only chat appear in Adopsi Tim
+    // with sessions and messages but no money at all. Without this sentence a
+    // reader totals the cost column and believes it is the team's whole
+    // spend, which is the single most expensive misreading in this report.
+    const chatOnly = chatOnlyMembers(report);
+    if (chatOnly.length) {
+      out.push(
+        `Angka biaya itu HANYA Claude Code. ${n0(chatOnly.length)} orang lain memakai Claude ` +
+          `lewat chat atau Cowork saja — pemakaian mereka terlihat di "Adopsi Tim", tapi ` +
+          `Anthropic tidak menerbitkan biaya per orang untuk chat, jadi mereka tidak muncul ` +
+          `di tabel biaya.`
+      );
+    } else {
+      out.push(
+        `Angka biaya itu HANYA Claude Code; pemakaian lewat chat dan Cowork tidak punya ` +
+          `rincian biaya per orang dari Anthropic.`
+      );
+    }
   }
 
   // Who is actually measured PER PERSON, and who is not.
@@ -141,15 +181,17 @@ export function readingGuide(report) {
         "Cakupan terluas: seluruh anggota, semua produk Claude (chat, Cowork, Claude Code).",
         "\"Kursi terpakai\" = berapa persen anggota yang benar-benar memakai Claude bulan ini. Ini angka untuk menilai apakah jumlah kursi sekarang pas.",
         "Kolom Pesan dan Sesi menunjukkan CARA orang memakai Claude, bukan biayanya. Seseorang bisa sangat aktif di chat dengan biaya tak terukur.",
+        "Kolom \"Sesi Code\" bernilai 0 berarti orang itu tidak memakai Claude Code — pemakaiannya nyata, hanya tidak punya angka biaya per orang.",
       ],
     });
   }
 
   if (hasWeb) {
     guide.push({
-      heading: "Pemakaian lewat Web & Desktop",
+      heading: "Pemakaian Claude Code",
       lines: [
-        "Hanya mencakup orang yang memakai Claude Code; yang hanya chat tidak muncul di sini.",
+        "HANYA Claude Code. Orang yang memakai Claude lewat chat atau Cowork saja tidak muncul di tabel ini sama sekali — cari mereka di \"Adopsi Tim\".",
+        "Anthropic tidak menerbitkan biaya per orang untuk chat dan Cowork pada paket Team, jadi kolom biaya di sini BUKAN total belanja tim.",
         "\"Est. biaya\" adalah perkiraan SETARA harga API, bukan tagihan. Paket Team ditagih per kursi, jadi angka ini dipakai untuk membandingkan beban antar orang, bukan untuk merekonsiliasi invoice.",
         "Urutan dari termahal: baris teratas adalah yang paling membebani kapasitas.",
       ],

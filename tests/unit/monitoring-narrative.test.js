@@ -94,7 +94,7 @@ describe("readingGuide", () => {
   it("explains each section that is actually present", () => {
     const headings = readingGuide(report).map((g) => g.heading);
     expect(headings).toContain("Adopsi Tim");
-    expect(headings).toContain("Pemakaian lewat Web & Desktop");
+    expect(headings).toContain("Pemakaian Claude Code");
     expect(headings).toContain("Tabel kuota per akun");
     expect(headings).toContain("Grafik harian");
   });
@@ -189,5 +189,72 @@ describe("the narrative in the plain-text part", () => {
     expect(html).toMatch(/Dari 10 anggota tim/);
     expect(html).toMatch(/Cara membaca laporan ini/);
     expect(html).toMatch(/Yang laporan ini belum bisa jawab/);
+  });
+});
+
+describe("the narrative separates Claude Code from chat", () => {
+  // Two members: one uses Claude Code, one only chats.
+  const mixed = {
+    summary: { atRiskCount: 0, accountCount: 1 },
+    coverage: {},
+    rows: [{ connectionId: "a", account: "3d", profile: "Rafli", source: "9router", measurable: true, windows: [] }],
+    claudeWeb: {
+      summary: { totalCostUsd: 1548.92, activeUsers: 5, totalSessions: 199 },
+      users: [{ email: "coder@x.io", totalCostUsd: 1000 }],
+      activity: {
+        overview: { utilization: { value: 90 }, dau: { value: 8 }, wau: { value: 9 }, mau: { value: 9 }, totalMembers: 10 },
+        members: [
+          { email: "coder@x.io", chatMessages: 3, coworkSessions: 0, codeSessions: 40 },
+          { email: "chatter@x.io", chatMessages: 261, coworkSessions: 38, codeSessions: 0 },
+          { email: "cowork@x.io", chatMessages: 0, coworkSessions: 46, codeSessions: 0 },
+        ],
+      },
+    },
+  };
+
+  it("says the cost figure covers Claude Code only", async () => {
+    // Without this a reader totals the cost column and believes it is the
+    // team's whole spend — the most expensive misreading in this report.
+    const { summaryNarrative } = await import("../../src/lib/monitoring/report/narrative.js");
+    expect(summaryNarrative(mixed).join(" ")).toMatch(/HANYA Claude Code/);
+  });
+
+  it("counts the people who only chat, from the activity rows", async () => {
+    // Counted from rows rather than by subtracting totals, so a reader can
+    // find each of them in the Adopsi Tim table.
+    const { summaryNarrative } = await import("../../src/lib/monitoring/report/narrative.js");
+    expect(summaryNarrative(mixed).join(" ")).toMatch(/2 orang lain memakai Claude lewat chat atau Cowork saja/);
+  });
+
+  it("does not count an idle member as chat-only", async () => {
+    // Someone with no activity at all is not evidence of chat use.
+    const { summaryNarrative } = await import("../../src/lib/monitoring/report/narrative.js");
+    const idle = {
+      ...mixed,
+      claudeWeb: {
+        ...mixed.claudeWeb,
+        activity: {
+          ...mixed.claudeWeb.activity,
+          members: [{ email: "idle@x.io", chatMessages: 0, coworkSessions: 0, codeSessions: 0 }],
+        },
+      },
+    };
+    const text = summaryNarrative(idle).join(" ");
+    expect(text).not.toMatch(/orang lain memakai Claude lewat chat/);
+    expect(text).toMatch(/HANYA Claude Code/);
+  });
+
+  it("warns in the guide that the cost column is not the team's spend", async () => {
+    const { readingGuide } = await import("../../src/lib/monitoring/report/narrative.js");
+    const sec = readingGuide(mixed).find((g) => g.heading === "Pemakaian Claude Code");
+    expect(sec.lines.join(" ")).toMatch(/BUKAN total belanja tim/);
+    expect(sec.lines.join(" ")).toMatch(/Adopsi Tim/);
+  });
+
+  it("explains a zero in the Sesi Code column", async () => {
+    // "0" there means no Claude Code, not no usage.
+    const { readingGuide } = await import("../../src/lib/monitoring/report/narrative.js");
+    const sec = readingGuide(mixed).find((g) => g.heading === "Adopsi Tim");
+    expect(sec.lines.join(" ")).toMatch(/Sesi Code.*0.*tidak memakai Claude Code/s);
   });
 });

@@ -288,7 +288,7 @@ export function renderReportText(report) {
     const s2 = web.summary;
     out.push("");
     out.push(
-      "PEMAKAIAN LEWAT WEB & DESKTOP (analytics claude.ai)" +
+      "PEMAKAIAN CLAUDE CODE — biaya per orang (analytics claude.ai)" +
         (web.range ? `  ${web.range.startDate} s/d ${web.range.endDate}` : "")
     );
     out.push(
@@ -314,7 +314,7 @@ export function renderReportText(report) {
     out.push(...chartLines(web.series, { label: "  Biaya harian (estimasi setara API)", fmt: (v) => fmtUsd(v), valueKey: "costUsd" }));
   } else if (web?.error) {
     out.push("");
-    out.push(`PEMAKAIAN LEWAT WEB & DESKTOP: tidak terbaca — ${web.error}`);
+    out.push(`PEMAKAIAN CLAUDE CODE: tidak terbaca — ${web.error}`);
   }
 
   const guide = readingGuide(report);
