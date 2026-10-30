@@ -621,3 +621,87 @@ describe("the activity date is clamped to what the API has", () => {
     expect(r.targetDate).toBe("2026-10-29");
   });
 });
+
+describe("activityWindow maps a period to a range the API accepts", () => {
+  const load = () => import("../../src/lib/monitoring/claudeWeb/activity.js");
+
+  it("a single day is that day, not a range", async () => {
+    const { activityWindow } = await load();
+    expect(activityWindow("day", "2026-10-28")).toMatchObject({
+      startDate: "2026-10-28", endDate: "2026-10-28", days: 1,
+    });
+  });
+
+  it("counts both ends, so 7D really spans seven days", async () => {
+    // An off-by-one here would quietly compare six days against seven.
+    const { activityWindow } = await load();
+    expect(activityWindow("7d", "2026-10-28")).toMatchObject({
+      startDate: "2026-10-22", endDate: "2026-10-28", days: 7,
+    });
+  });
+
+  it("ends month-to-date on the latest available day, never on today", async () => {
+    // The API answers only through yesterday UTC and usually lags further, so
+    // an unclamped month would end on a date that 400s.
+    const { activityWindow } = await load();
+    expect(activityWindow("mtd", "2026-10-28")).toMatchObject({
+      startDate: "2026-10-01", endDate: "2026-10-28", days: 28,
+    });
+  });
+
+  it("falls back to a single day for an unknown period", async () => {
+    const { activityWindow } = await load();
+    expect(activityWindow("rubbish", "2026-10-28").days).toBe(1);
+  });
+
+  it("asks the members endpoint for the window's start", async () => {
+    // start_date is the START of a range on that endpoint — days_active rises
+    // with it — so one call serves every period.
+    const { fetchActivity } = await load();
+    const seen = [];
+    await fetchActivity({
+      orgId: "o", cookie: "sessionKey=x", configured: true, period: "7d",
+      now: new Date("2026-10-30T07:00:00Z"),
+      fetchImpl: async (url) => {
+        seen.push(url);
+        return url.includes("/activity/overview")
+          ? { ok: true, json: async () => ({ data_as_of: "2026-10-28" }) }
+          : { ok: true, json: async () => ({}) };
+      },
+    });
+    expect(seen.find((u) => u.includes("/activity/users"))).toContain("start_date=2026-10-22");
+  });
+
+  it("keeps the chart at a fortnight even for a one-day window", async () => {
+    // A 1-day chart is a single bar, which says nothing about trend — the one
+    // thing a chart is for.
+    const { fetchActivity } = await load();
+    const seen = [];
+    await fetchActivity({
+      orgId: "o", cookie: "sessionKey=x", configured: true, period: "day",
+      now: new Date("2026-10-30T07:00:00Z"),
+      fetchImpl: async (url) => {
+        seen.push(url);
+        return url.includes("/activity/overview")
+          ? { ok: true, json: async () => ({ data_as_of: "2026-10-28" }) }
+          : { ok: true, json: async () => ({}) };
+      },
+    });
+    expect(seen.find((u) => u.includes("timeseries"))).toContain("days=14");
+  });
+
+  it("reports the window it used, for the caption", async () => {
+    const { fetchActivity } = await load();
+    const r = await fetchActivity({
+      orgId: "o", cookie: "sessionKey=x", configured: true, period: "30d",
+      now: new Date("2026-10-30T07:00:00Z"),
+      fetchImpl: async (url) =>
+        url.includes("/activity/overview")
+          ? { ok: true, json: async () => ({ data_as_of: "2026-10-28" }) }
+          : { ok: true, json: async () => ({}) },
+    });
+    expect(r.activityEndDate).toBe("2026-10-28");
+    expect(r.activityDays).toBe(30);
+    expect(r.period).toBe("30d");
+  });
+});

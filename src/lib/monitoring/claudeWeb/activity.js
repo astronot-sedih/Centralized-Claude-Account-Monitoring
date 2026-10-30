@@ -127,6 +127,53 @@ export function latestAvailableDate(reportedAsOf, now = new Date()) {
   return asOf || yesterday;
 }
 
+/**
+ * The periods the Adopsi Tim card offers, mirroring the Usage page's control.
+ *
+ * `days` is how far back the window reaches from the latest available day.
+ * 1 means that day alone — not "today", which the API refuses outright.
+ */
+export const ACTIVITY_PERIODS = Object.freeze([
+  { value: "day", label: "1 Hari", days: 1 },
+  { value: "7d", label: "7D", days: 7 },
+  { value: "30d", label: "30D", days: 30 },
+  { value: "mtd", label: "Bulan ini", days: null },
+]);
+
+/**
+ * Turns a period into the window the endpoints want.
+ *
+ * `start_date` on the members and file-category endpoints is the START of a
+ * range, not a single day: days_active rises with it, so the same call serves
+ * every period.
+ *
+ * Month-to-date is clamped to the latest available day, never to today: the
+ * API answers only through yesterday UTC and the pipeline usually lags a
+ * further day, so an unclamped month would end on a date that 400s.
+ *
+ * @param {string} period one of ACTIVITY_PERIODS
+ * @param {string} endDate latest available day, YYYY-MM-DD
+ */
+export function activityWindow(period, endDate) {
+  const end = /^\d{4}-\d{2}-\d{2}$/.test(String(endDate || ""))
+    ? endDate
+    : new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+  if (period === "mtd") {
+    const startDate = `${end.slice(0, 7)}-01`;
+    // Day count inclusive of both ends, for the series.
+    const days = Math.max(1, Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${startDate}T00:00:00Z`)) / 86400000) + 1);
+    return { startDate, endDate: end, days };
+  }
+
+  const found = ACTIVITY_PERIODS.find((p) => p.value === period);
+  const days = found?.days || 1;
+  const startDate = new Date(Date.parse(`${end}T00:00:00Z`) - (days - 1) * 86400000)
+    .toISOString()
+    .slice(0, 10);
+  return { startDate, endDate: end, days };
+}
+
 export async function fetchActivity(opts) {
   if (opts?.configured === false) {
     return {
@@ -142,13 +189,17 @@ export async function fetchActivity(opts) {
   // per-day calls. Without that the per-member table silently came back
   // empty whenever the caller passed a date the pipeline had not reached.
   const overview = await fetchActivityOverview(opts);
-  const dayDate = latestAvailableDate(overview.data?.data_as_of, opts?.now);
-  const dayOpts = { ...opts, startDate: dayDate };
+  const latest = latestAvailableDate(overview.data?.data_as_of, opts?.now);
+  // The window the caller asked for, clamped to the latest day the API has.
+  const win = activityWindow(opts?.period || "day", latest);
+  const dayOpts = { ...opts, startDate: win.startDate };
 
   const [cowork, users, series, files] = await Promise.all([
     fetchCoworkOverview(dayOpts),
     fetchActivityUsers(dayOpts),
-    fetchActivityTimeseries({ ...dayOpts, metric: "dau", days: 30 }),
+    // The series always spans at least a fortnight: a 1-day chart is a single
+    // bar, which says nothing about trend — the one thing a chart is for.
+    fetchActivityTimeseries({ ...dayOpts, metric: "dau", days: Math.max(14, win.days) }),
     fetchCoworkFileCategories(dayOpts),
   ]);
 
@@ -170,7 +221,10 @@ export async function fetchActivity(opts) {
     dataAsOf: overview.data?.data_as_of || users.data?.data_as_of || null,
     // The day the per-member figures describe, which is NOT the report's
     // date: Anthropic's pipeline runs a day or more behind.
-    activityDate: dayDate,
+    activityDate: win.startDate,
+    activityEndDate: win.endDate,
+    activityDays: win.days,
+    period: opts?.period || "day",
     targetDate: overview.data?.target_date || null,
     series: series.data?.data_points || [],
     fileCategories: files.data?.categories || [],

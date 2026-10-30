@@ -18,18 +18,24 @@ import { SEV_CSS_VARS } from "@/lib/monitoring/tokens";
 export default function TeamActivityCard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Mirrors the Usage page's period control. "day" rather than "today": the
+  // API answers only through yesterday UTC, so a control labelled Today would
+  // promise something it cannot deliver.
+  const [period, setPeriod] = useState("day");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/monitoring/claude-web/activity", { cache: "no-store" });
+      const res = await fetch(`/api/monitoring/claude-web/activity?period=${period}`, {
+        cache: "no-store",
+      });
       setData(await res.json());
     } catch (e) {
       setData({ ok: false, configured: true, error: e.message, members: [] });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [period]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -38,7 +44,8 @@ export default function TeamActivityCard() {
 
   const {
     overview, cowork, members = [], series = [], fileCategories = [],
-    error, ok, dataAsOf, activityDate,
+    error, ok, dataAsOf, activityDate, activityEndDate, activityDays,
+    periods = [],
   } = data;
 
   return (
@@ -49,22 +56,58 @@ export default function TeamActivityCard() {
           <p className="text-[11px] opacity-60">
             Dari analytics organisasi claude.ai — mencakup chat, Cowork, dan Claude Code
             untuk seluruh anggota, termasuk yang tidak lewat router.
-            {/* The day these numbers describe. Anthropic refuses any date
+            {/* The window these numbers describe. Anthropic refuses any date
                 after yesterday UTC and often lags a further day, so showing
                 the report's own date would date them a day or two early. */}
-            {activityDate ? ` Angka per ${activityDate}` : ""}
-            {dataAsOf && dataAsOf !== activityDate ? ` (data terbaru ${dataAsOf})` : ""}
-            {activityDate ? "." : ""}
+            {activityDate ? (
+              activityDays > 1
+                ? ` Angka ${activityDate} s/d ${activityEndDate} (${activityDays} hari).`
+                : ` Angka per ${activityDate}.`
+            ) : ""}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={load}
-          className="rounded-lg border px-3 py-1.5 text-xs font-medium"
-          style={{ borderColor: "var(--line-soft)" }}
-        >
-          Muat ulang
-        </button>
+
+        <div className="flex items-center gap-2">
+          {/* Same periods as the Usage page. The shortest is "1 Hari", not
+              "Today": the API answers only through yesterday UTC, so a
+              control labelled Today would promise what it cannot deliver. */}
+          {periods.length ? (
+            <div
+              className="inline-flex overflow-hidden rounded-lg border"
+              style={{ borderColor: "var(--line-soft)" }}
+              role="group"
+              aria-label="Periode adopsi"
+            >
+              {periods.map((p) => {
+                const on = p.value === period;
+                return (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => setPeriod(p.value)}
+                    aria-pressed={on}
+                    className="px-2.5 py-1.5 text-[11px] font-medium"
+                    style={{
+                      background: on ? "var(--sev-info-soft)" : "transparent",
+                      color: on ? "var(--sev-info-text)" : undefined,
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={load}
+            className="rounded-lg border px-3 py-1.5 text-xs font-medium"
+            style={{ borderColor: "var(--line-soft)" }}
+          >
+            Muat ulang
+          </button>
+        </div>
       </div>
 
       {error ? (
@@ -108,7 +151,7 @@ export default function TeamActivityCard() {
       {series.length ? (
         <div className="mt-4">
           <div className="mb-1.5 text-[10px] uppercase tracking-wider opacity-60">
-            Pengguna aktif harian (30 hari)
+            Pengguna aktif harian ({series.length} hari)
           </div>
           <Bars rows={series} suffix=" orang" />
         </div>

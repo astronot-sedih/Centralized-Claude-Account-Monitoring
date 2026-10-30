@@ -10,7 +10,7 @@
 
 import { NextResponse } from "next/server";
 import { claudeWebSettingsFromEnv } from "@/lib/monitoring/claudeWeb/client.js";
-import { fetchActivity } from "@/lib/monitoring/claudeWeb/activity.js";
+import { fetchActivity, ACTIVITY_PERIODS } from "@/lib/monitoring/claudeWeb/activity.js";
 import {
   normalizeActivityOverview,
   normalizeCoworkOverview,
@@ -31,11 +31,18 @@ const isDate = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ""));
 export async function GET(request) {
   const { timeZone } = monitorSettingsFromEnv();
   const today = dateKeyFor(new Date(), timeZone);
-  const asked = new URL(request.url).searchParams.get("start");
+  const sp = new URL(request.url).searchParams;
+  const asked = sp.get("start");
   const startDate = isDate(asked) ? asked : monthRangeFor(today).startDate;
 
+  // An unknown period falls back to a single day rather than being passed
+  // through: the window maths would otherwise produce a range the endpoints
+  // reject, and the section would read as broken.
+  const askedPeriod = sp.get("period");
+  const period = ACTIVITY_PERIODS.some((p) => p.value === askedPeriod) ? askedPeriod : "day";
+
   const settings = claudeWebSettingsFromEnv();
-  const r = await fetchActivity({ ...settings, startDate });
+  const r = await fetchActivity({ ...settings, startDate, period });
 
   // 200 even on failure: the shape is the same either way, and the page shows
   // the reason rather than an error boundary that hides everything else.
@@ -50,6 +57,10 @@ export async function GET(request) {
       // any date after yesterday UTC and often lags a further day, so this is
       // not the date the caller asked for and must not be presented as it.
       activityDate: r.activityDate || null,
+      activityEndDate: r.activityEndDate || null,
+      activityDays: r.activityDays || null,
+      period: r.period || "day",
+      periods: ACTIVITY_PERIODS,
       targetDate: r.targetDate || null,
       overview: normalizeActivityOverview(r.overview),
       cowork: normalizeCoworkOverview(r.cowork),
